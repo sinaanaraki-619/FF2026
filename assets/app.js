@@ -42,12 +42,11 @@
     return round % 2 === 1 ? (round - 1) * teams + slot : round * teams - slot + 1;
   });
 
-  const consensusAdp = (player) => {
-    const secondarySources = Object.entries(data.sources).filter(([key]) => key !== "yahoo");
-    const totalWeight = secondarySources.reduce((total, [, source]) => total + source.weight, 0);
-    const weightedValue = secondarySources.reduce((total, [key, source]) => total + player.adp[key] * source.weight, 0);
-    return weightedValue / totalWeight;
-  };
+  const isAdp = (value) => typeof value === "number" && Number.isFinite(value);
+
+  const formatAdp = (value) => isAdp(value) ? value.toFixed(1) : "N/A";
+
+  const consensusAdp = (player) => player.adp.average;
 
   const weightedAdp = (player) => {
     const yahooWeight = data.sources.yahoo.weight;
@@ -55,6 +54,9 @@
   };
 
   const targetWindow = (player) => {
+    if (!isAdp(player.adp.yahoo) || !isAdp(consensusAdp(player))) {
+      return null;
+    }
     const adp = weightedAdp(player);
     return {
       adp,
@@ -68,6 +70,9 @@
   const availabilityGracePicks = (teams) => Math.ceil(teams / 2);
 
   const isPlausiblyAvailable = (player, pick, teams) => {
+    if (!targetWindow(player)) {
+      return false;
+    }
     const grace = availabilityGracePicks(teams);
     const yahooExpired = pick - player.adp.yahoo > grace;
     const consensusExpired = pick - consensusAdp(player) > grace;
@@ -75,7 +80,11 @@
   };
 
   const classify = (player, pick) => {
-    const { adp } = targetWindow(player);
+    const window = targetWindow(player);
+    if (!window) {
+      return { label: "Avoid", className: "avoid", detail: "missing Yahoo or source AVG" };
+    }
+    const { adp } = window;
     const earlyBy = Math.round(adp - pick);
     const lateBy = Math.round(pick - adp);
 
@@ -151,7 +160,7 @@
     return picks.map((pick, index) => {
       const round = index + 1;
       const candidates = players
-        .filter((player) => !selectedIds.has(player.id))
+        .filter((player) => !selectedIds.has(player.id) && targetWindow(player))
         .map((player) => {
           const status = classify(player, pick);
           const { adp } = targetWindow(player);
@@ -181,7 +190,7 @@
             <li>
               <span>
                 <span class="queue-player">${player.name} <span aria-label="${player.position}">${player.position}</span></span>
-                <span class="queue-meta">Rank ${player.rank} · Yahoo ${player.adp.yahoo.toFixed(1)} · Consensus ${consensus.toFixed(1)} · ${status.detail}</span>
+                <span class="queue-meta">Rank ${player.rank} · Yahoo ${formatAdp(player.adp.yahoo)} · Consensus ${formatAdp(consensus)} · ${status.detail}</span>
               </span>
               <span class="tag ${status.className}">${status.label}</span>
             </li>`).join("")}
@@ -198,15 +207,16 @@
       const window = targetWindow(player);
       const status = classify(player, nextPick);
       const consensus = consensusAdp(player);
+      const projection = isAdp(player.projectedPoints) ? `${player.projectedPoints.toFixed(1)} pts/g` : "source-ranked";
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${player.rank}</td>
-        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${player.projectedPoints.toFixed(1)} pts/g</small></td>
+        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${projection}</small></td>
         <td>${player.position}</td>
-        <td>${player.adp.yahoo.toFixed(1)}</td>
-        <td>${consensus.toFixed(1)}</td>
-        <td>${window.adp.toFixed(1)}</td>
-        <td><span class="tag ${status.className}" title="${status.detail}">${window.start}–${window.end}</span></td>`;
+        <td>${formatAdp(player.adp.yahoo)}</td>
+        <td>${formatAdp(consensus)}</td>
+        <td>${window ? formatAdp(window.adp) : "N/A"}</td>
+        <td><span class="tag ${status.className}" title="${status.detail}">${window ? `${window.start}–${window.end}` : "N/A"}</span></td>`;
       return row;
     }));
   };

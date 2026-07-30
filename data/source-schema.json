@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Draft Compass ranking data",
-  "description": "Schema for the local data model consumed by assets/data.js.",
+  "description": "Schema for the source-backed local data model consumed by assets/data.js.",
   "type": "object",
   "required": ["meta", "sources", "rankings"],
   "properties": {
@@ -59,16 +59,17 @@
         "position": { "enum": ["QB", "RB", "WR", "TE", "K", "DST"] },
         "team": { "type": "string" },
         "rank": { "type": "integer", "minimum": 1 },
-        "projectedPoints": { "type": "number" },
+        "projectedPoints": { "type": ["number", "null"] },
         "tier": { "type": "integer", "minimum": 1 },
         "adp": {
           "type": "object",
-          "required": ["yahoo", "sleeper", "rtSports", "realTime"],
+          "required": ["yahoo", "sleeper", "rtSports", "average", "realTime"],
           "properties": {
-            "yahoo": { "type": "number", "minimum": 1 },
-            "sleeper": { "type": "number", "minimum": 1 },
-            "rtSports": { "type": "number", "minimum": 1 },
-            "realTime": { "type": "number", "minimum": 1 }
+            "yahoo": { "type": ["number", "null"], "minimum": 1 },
+            "sleeper": { "type": ["number", "null"], "minimum": 1 },
+            "rtSports": { "type": ["number", "null"], "minimum": 1 },
+            "average": { "type": ["number", "null"], "minimum": 1 },
+            "realTime": { "type": ["number", "null"], "minimum": 1 }
           }
         }
       }

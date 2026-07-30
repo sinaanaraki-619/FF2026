@@ -1,63 +1,130 @@
 param(
-  [string]$DataPath = (Join-Path $PSScriptRoot "..\assets\data.js")
+  [string]$DataPath
 )
 
+if ([string]::IsNullOrWhiteSpace($DataPath)) {
+  $DataPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\assets\data.js"
+}
+
 $source = Get-Content -LiteralPath $DataPath -Raw
-$appSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\assets\app.js") -Raw
-$playerPattern = '^\s*\["(?<id>[^"]+)", "(?<name>[^"]+)", "(?<position>[^"]+)", "(?<team>[^"]+)", (?<yahoo>[\d.]+), (?<sleeper>[\d.]+), (?<rtSports>[\d.]+), (?<realTime>[\d.]+)\],?\r?$'
+$appSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\assets\app.js") -Raw
+$playerPattern = '^\s*\["(?<id>[^"]+)","(?<name>[^"]+)","(?<position>[^"]+)","(?<team>[^"]*)",(?<yahoo>[\d.]+|null),(?<sleeper>[\d.]+|null),(?<rtSports>[\d.]+|null),(?<average>[\d.]+|null),(?<realTime>[\d.]+|null)\],?\r?$'
+$rankPattern = '^\s*\["(?<id>[^"]+)",(?<rank>\d+),(?<tier>\d+)\],?\r?$'
 $players = @{}
+$playerNames = [System.Collections.Generic.HashSet[string]]::new()
+
+function Convert-NullableNumber {
+  param([string]$Value)
+
+  if ($Value -eq "null") {
+    return $null
+  }
+  return [double]$Value
+}
 
 foreach ($match in [regex]::Matches($source, $playerPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
-  $players[$match.Groups["id"].Value] = [pscustomobject]@{
-    Yahoo = [double]$match.Groups["yahoo"].Value
-    Sleeper = [double]$match.Groups["sleeper"].Value
-    RtSports = [double]$match.Groups["rtSports"].Value
-    RealTime = [double]$match.Groups["realTime"].Value
+  $id = $match.Groups["id"].Value
+  if ($players.ContainsKey($id) -or -not $playerNames.Add($match.Groups["name"].Value)) {
+    throw "Duplicate generated player identity: $id"
+  }
+  $players[$id] = [pscustomobject]@{
+    Name = $match.Groups["name"].Value
+    Position = $match.Groups["position"].Value
+    Team = $match.Groups["team"].Value
+    Yahoo = Convert-NullableNumber $match.Groups["yahoo"].Value
+    Sleeper = Convert-NullableNumber $match.Groups["sleeper"].Value
+    RtSports = Convert-NullableNumber $match.Groups["rtSports"].Value
+    Average = Convert-NullableNumber $match.Groups["average"].Value
+    RealTime = Convert-NullableNumber $match.Groups["realTime"].Value
   }
 }
 
-function Get-ConsensusAdp {
-  param([object]$Player)
-
-  return ($Player.Sleeper * 0.2 + $Player.RtSports * 0.15 + $Player.RealTime * 0.1) / 0.45
+$pprSection = [regex]::Match($source, 'const pprOrder = \[(?<body>.*?)\];\r?\n\r?\n  // No half-PPR', [System.Text.RegularExpressions.RegexOptions]::Singleline).Groups["body"].Value
+$ranks = @{}
+foreach ($match in [regex]::Matches($pprSection, $rankPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+  $id = $match.Groups["id"].Value
+  if ($ranks.ContainsKey($id)) {
+    throw "Duplicate PPR rank entry: $id"
+  }
+  $ranks[$id] = [int]$match.Groups["rank"].Value
 }
 
-function Get-TargetAdp {
-  param([object]$Player)
-
-  return $Player.Yahoo * 0.55 + (Get-ConsensusAdp $Player) * 0.45
-}
-
-function Assert-Close {
+function Assert-Value {
   param(
-    [double]$Actual,
-    [double]$Expected,
+    [object]$Actual,
+    [object]$Expected,
     [string]$Label
   )
 
-  if ([math]::Abs($Actual - $Expected) -gt 0.0001) {
+  if ($null -eq $Expected -and $null -eq $Actual) {
+    return
+  }
+  if ($Actual -is [double] -or $Expected -is [double]) {
+    if ([math]::Abs([double]$Actual - [double]$Expected) -gt 0.0001) {
+      throw "$Label expected $Expected but received $Actual."
+    }
+    return
+  }
+  if ($Actual -ne $Expected) {
     throw "$Label expected $Expected but received $Actual."
   }
 }
 
-foreach ($requiredPlayer in @("kenneth-walker", "ja-marr-chase")) {
-  if (-not $players.ContainsKey($requiredPlayer)) {
-    throw "Missing $requiredPlayer from the local ADP dataset."
+function Assert-Player {
+  param(
+    [string]$Id,
+    [string]$Name,
+    [string]$Position,
+    [string]$Team,
+    [int]$Rank,
+    [object]$Yahoo,
+    [object]$Sleeper,
+    [object]$RtSports,
+    [object]$Average,
+    [object]$RealTime
+  )
+
+  if (-not $players.ContainsKey($Id) -or -not $ranks.ContainsKey($Id)) {
+    throw "Missing representative source player: $Id"
   }
+  $player = $players[$Id]
+  Assert-Value $player.Name $Name "$Name name"
+  Assert-Value $player.Position $Position "$Name position"
+  Assert-Value $player.Team $Team "$Name team"
+  Assert-Value $ranks[$Id] $Rank "$Name Guru rank"
+  Assert-Value $player.Yahoo $Yahoo "$Name Yahoo ADP"
+  Assert-Value $player.Sleeper $Sleeper "$Name Sleeper ADP"
+  Assert-Value $player.RtSports $RtSports "$Name RTSports ADP"
+  Assert-Value $player.Average $Average "$Name source AVG"
+  Assert-Value $player.RealTime $RealTime "$Name Real-Time ADP"
 }
 
-$walker = $players["kenneth-walker"]
-Assert-Close $walker.Yahoo 21.0 "Kenneth Walker Yahoo ADP"
-Assert-Close (Get-ConsensusAdp $walker) 20.3444444444444 "Kenneth Walker consensus ADP"
-Assert-Close (Get-TargetAdp $walker) 20.705 "Kenneth Walker target ADP"
-
-$chase = $players["ja-marr-chase"]
-Assert-Close $chase.Yahoo 1.7 "Ja'Marr Chase Yahoo ADP"
-Assert-Close (Get-ConsensusAdp $chase) 2.11111111111111 "Ja'Marr Chase consensus ADP"
-Assert-Close (Get-TargetAdp $chase) 1.885 "Ja'Marr Chase target ADP"
-
-if (-not $appSource.Contains("return player.adp.yahoo * yahooWeight + consensusAdp(player) * (1 - yahooWeight);")) {
-  throw "The dashboard target-ADP implementation no longer uses a Yahoo-primary weighted average."
+if ($players.Count -ne 198 -or $ranks.Count -ne 198 -or $players.Count -ne $ranks.Count) {
+  throw "Expected 198 unique source-backed records and ranks; found $($players.Count) players and $($ranks.Count) ranks."
+}
+if (($players.Keys | Where-Object { -not $ranks.ContainsKey($_) }).Count -ne 0) {
+  throw "Player and PPR rank identities differ."
+}
+if (-not $source.Contains("sourceRecordCount: 198") -or -not $source.Contains("excludedGuruRecords: [`"Bryce Lance`",`"Carolina Panthers`"]")) {
+  throw "Source record-count or documented exclusions are missing."
+}
+if (-not $source.Contains("const halfPprOrder = pprOrder.map((entry) => [...entry]);")) {
+  throw "The provisional half-PPR board is not a distinct PPR-derived structure."
+}
+if (-not $appSource.Contains("const consensusAdp = (player) => player.adp.average;")) {
+  throw "The dashboard no longer uses the supplied AVG field as consensus."
 }
 
-Write-Output "ADP validation passed: Kenneth Walker target 20.7 (Yahoo 21.0, consensus 20.3); Ja'Marr Chase target 1.9."
+Assert-Player "jamarrchase" "Ja'Marr Chase" "WR" "CIN" 1 3 3 3 3 3
+Assert-Player "jamescook" "James Cook III" "RB" "BUF" 12 10 9 10 9.7 9
+Assert-Player "tylerwarren" "Tyler Warren" "TE" "IND" 52 49 51 57 52.3 48
+$eddyName = "Eddy Pi" + [char]0x00F1 + "eiro"
+Assert-Player "eddypineiro" $eddyName "K" "SF" 189 219 $null 237 228 170
+Assert-Player "kennethwalker" "Kenneth Walker III" "RB" "KC" 15 21 22 18 20.3 17
+
+$cook = $players["jamescook"]
+$walker = $players["kennethwalker"]
+Assert-Value ($cook.Yahoo * 0.55 + $cook.Average * 0.45) 9.865 "James Cook target ADP"
+Assert-Value ($walker.Yahoo * 0.55 + $walker.Average * 0.45) 20.685 "Kenneth Walker target ADP"
+
+Write-Output "Source integrity validation passed: 198 unique records/ranks; early, mid, and late source rows match; Cook AVG 9.7 and Walker AVG 20.3."

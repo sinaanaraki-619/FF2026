@@ -65,7 +65,7 @@ const items = rows.map((line, index) => {
     rank,
     projectedPoints: 0,
     tier: Math.ceil(rank / 12),
-    adp: { yahoo: adp, sleeper: adp, rtSports: adp, realTime: adp }
+    adp: { yahoo: adp, sleeper: adp, rtSports: adp, average: adp, realTime: adp }
   };
 });
 
