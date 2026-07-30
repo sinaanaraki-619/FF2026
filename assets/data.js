@@ -37,7 +37,7 @@
     ["kyren-williams", "Kyren Williams", "RB", "LAR", 46.1, 47.0, 46.5, 47.4],
     ["george-kittle", "George Kittle", "TE", "SF", 48.2, 49.1, 48.6, 49.5],
     ["dk-metcalf", "DK Metcalf", "WR", "PIT", 50.6, 51.8, 51.1, 52.0],
-    ["kenneth-walker", "Kenneth Walker III", "RB", "SEA", 53.0, 54.0, 53.5, 54.5],
+    ["kenneth-walker", "Kenneth Walker III", "RB", "SEA", 21.0, 20.6, 20.1, 20.2],
     ["david-montgomery", "David Montgomery", "RB", "DET", 55.4, 56.3, 55.9, 56.7],
     ["zay-flowers", "Zay Flowers", "WR", "BAL", 57.8, 58.9, 58.2, 59.2],
     ["tucker-kraft", "Tucker Kraft", "TE", "GB", 60.4, 61.5, 60.9, 61.9],

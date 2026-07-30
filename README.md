@@ -12,6 +12,12 @@ python -m http.server 8080
 
 Then open `http://localhost:8080`. Do not open `index.html` directly: using a server matches GitHub Pages behavior.
 
+Validate the Yahoo-primary ADP aggregation and the checked multi-source player values:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-adp.ps1
+```
+
 ## Publish with GitHub Pages
 
 1. Push the default branch (`main`) containing this repository.
@@ -46,6 +52,8 @@ The importer requires `rank` (or `overall rank`), `player` (or `name`), and `pos
 4. `rankings.halfPpr.provisional` to `false` only after importing a true half-PPR source.
 
 Yahoo is intentionally the primary source (55% default weight). The remaining sources identify market disagreement and contribute 45% combined. Adjust source weights only if the target draft room reliably follows a different market.
+
+The board displays Yahoo ADP, the secondary-source consensus (Sleeper, RTSports, and Real-Time normalized to their combined weight), and Target ADP. Target ADP is a 55% Yahoo / 45% secondary-consensus weighted average; values are never summed.
 
 ## Target logic
 

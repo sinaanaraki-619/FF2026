@@ -158,7 +158,7 @@
           const earlyBy = adp - pick;
           const score = (150 - player.rank) + preferredPositionScore(player, round, state.flex)
             - Math.abs(earlyBy) * .45 - (status.className === "avoid" ? 500 : 0);
-          return { player, status, score };
+          return { player, status, score, consensus: consensusAdp(player) };
         })
         .filter(({ player, status }) => status.className !== "avoid" && isPlausiblyAvailable(player, pick, state.teams))
         .sort((a, b) => b.score - a.score)
@@ -177,11 +177,11 @@
       card.innerHTML = `
         <header><strong>Round ${round}</strong><span>${formatPick(pick, state.teams)} · Overall ${pick}</span></header>
         ${candidates.length ? `<ol class="queue-options">
-          ${candidates.map(({ player, status }) => `
+          ${candidates.map(({ player, status, consensus }) => `
             <li>
               <span>
                 <span class="queue-player">${player.name} <span aria-label="${player.position}">${player.position}</span></span>
-                <span class="queue-meta">Rank ${player.rank} · Yahoo ${player.adp.yahoo.toFixed(1)} · ${status.detail}</span>
+                <span class="queue-meta">Rank ${player.rank} · Yahoo ${player.adp.yahoo.toFixed(1)} · Consensus ${consensus.toFixed(1)} · ${status.detail}</span>
               </span>
               <span class="tag ${status.className}">${status.label}</span>
             </li>`).join("")}
@@ -197,12 +197,14 @@
     elements.rankings.replaceChildren(...matching.map((player) => {
       const window = targetWindow(player);
       const status = classify(player, nextPick);
+      const consensus = consensusAdp(player);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${player.rank}</td>
         <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${player.projectedPoints.toFixed(1)} pts/g</small></td>
         <td>${player.position}</td>
         <td>${player.adp.yahoo.toFixed(1)}</td>
+        <td>${consensus.toFixed(1)}</td>
         <td>${window.adp.toFixed(1)}</td>
         <td><span class="tag ${status.className}" title="${status.detail}">${window.start}–${window.end}</span></td>`;
       return row;
