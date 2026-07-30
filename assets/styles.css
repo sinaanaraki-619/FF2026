@@ -300,6 +300,13 @@ a:focus-visible {
   border-bottom: 0;
 }
 
+.queue-fallback {
+  margin: 0;
+  padding: 1rem .85rem;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
 .queue-player {
   display: block;
   font-size: .9rem;

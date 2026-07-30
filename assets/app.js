@@ -42,11 +42,16 @@
     return round % 2 === 1 ? (round - 1) * teams + slot : round * teams - slot + 1;
   });
 
-  const weightedAdp = (player) => {
-    const sources = Object.entries(data.sources);
-    const totalWeight = sources.reduce((total, [, source]) => total + source.weight, 0);
-    const weightedValue = sources.reduce((total, [key, source]) => total + player.adp[key] * source.weight, 0);
+  const consensusAdp = (player) => {
+    const secondarySources = Object.entries(data.sources).filter(([key]) => key !== "yahoo");
+    const totalWeight = secondarySources.reduce((total, [, source]) => total + source.weight, 0);
+    const weightedValue = secondarySources.reduce((total, [key, source]) => total + player.adp[key] * source.weight, 0);
     return weightedValue / totalWeight;
+  };
+
+  const weightedAdp = (player) => {
+    const yahooWeight = data.sources.yahoo.weight;
+    return player.adp.yahoo * yahooWeight + consensusAdp(player) * (1 - yahooWeight);
   };
 
   const targetWindow = (player) => {
@@ -58,6 +63,15 @@
       marketStart: Math.max(1, Math.ceil(adp - 3)),
       end: Math.ceil(adp + 5)
     };
+  };
+
+  const availabilityGracePicks = (teams) => Math.ceil(teams / 2);
+
+  const isPlausiblyAvailable = (player, pick, teams) => {
+    const grace = availabilityGracePicks(teams);
+    const yahooExpired = pick - player.adp.yahoo > grace;
+    const consensusExpired = pick - consensusAdp(player) > grace;
+    return !(yahooExpired && consensusExpired);
   };
 
   const classify = (player, pick) => {
@@ -146,6 +160,7 @@
             - Math.abs(earlyBy) * .45 - (status.className === "avoid" ? 500 : 0);
           return { player, status, score };
         })
+        .filter(({ player, status }) => status.className !== "avoid" && isPlausiblyAvailable(player, pick, state.teams))
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
       if (candidates[0]) {
@@ -161,7 +176,7 @@
       card.className = "round-card";
       card.innerHTML = `
         <header><strong>Round ${round}</strong><span>${formatPick(pick, state.teams)} · Overall ${pick}</span></header>
-        <ol class="queue-options">
+        ${candidates.length ? `<ol class="queue-options">
           ${candidates.map(({ player, status }) => `
             <li>
               <span>
@@ -170,7 +185,7 @@
               </span>
               <span class="tag ${status.className}">${status.label}</span>
             </li>`).join("")}
-        </ol>`;
+        </ol>` : `<p class="queue-fallback">No plausible target remains in this seed board. Refresh or expand the rankings before this pick.</p>`}`;
       return card;
     }));
   };

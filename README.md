@@ -60,3 +60,5 @@ For each candidate, Draft Compass computes a source-weighted ADP and target wind
 | More than 12 picks early, or a 9–12 early reach without a large-value case | Avoid |
 
 The guardrail never recommends a player more than 12 picks early.
+
+Queue recommendations also have an availability gate. Yahoo ADP is checked first against a weighted consensus of Sleeper, RTSports, and Real-Time. A player is excluded when **both** Yahoo and consensus are more than half a draft round earlier than the planned pick (5 picks in 10-team leagues, 6 in 12-team leagues, and 7 in 14-team leagues). This keeps implausibly expired players out of both primary and alternate targets while still allowing realistic falls. If the local board has no eligible player left, the relevant round explains that more current rankings are needed.
