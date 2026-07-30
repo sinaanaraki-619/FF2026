@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A scoring-aware fantasy football draft dashboard with risk-adjusted targets.">
+    <title>Draft Compass | Fantasy Football Dashboard</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script src="assets/data.js" defer></script>
+    <script src="assets/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#dashboard">Skip to dashboard</a>
+    <header class="site-header">
+      <div class="header-content">
+        <div>
+          <p class="eyebrow">Fantasy Football 2026</p>
+          <h1>Draft Compass</h1>
+          <p class="subtitle">Risk-adjusted draft targets for every turn.</p>
+        </div>
+        <div class="refresh-card" aria-live="polite">
+          <span>Data last refreshed</span>
+          <strong id="data-refreshed">Loading...</strong>
+          <small id="dataset-note"></small>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboard" class="page-shell">
+      <noscript>
+        <p class="notice warning">Draft Compass requires JavaScript to calculate snake picks and draft targets.</p>
+      </noscript>
+
+      <section class="panel setup-panel" aria-labelledby="setup-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Draft setup</p>
+            <h2 id="setup-title">Build your board</h2>
+          </div>
+          <p id="setup-description">Adjust your format to recalculate every pick and target window.</p>
+        </div>
+        <form id="draft-form" class="filters" aria-describedby="setup-description">
+          <label>
+            <span>Scoring</span>
+            <select id="scoring" name="scoring">
+              <option value="ppr">PPR</option>
+              <option value="halfPpr">Half-PPR</option>
+            </select>
+          </label>
+          <label>
+            <span>League size</span>
+            <select id="teams" name="teams">
+              <option value="10">10 teams</option>
+              <option value="12" selected>12 teams</option>
+              <option value="14">14 teams</option>
+            </select>
+          </label>
+          <label>
+            <span>Draft position</span>
+            <select id="slot" name="slot"></select>
+          </label>
+          <label>
+            <span>Flex slots</span>
+            <select id="flex" name="flex">
+              <option value="1" selected>1 flex</option>
+              <option value="2">2 flexes</option>
+            </select>
+          </label>
+        </form>
+        <p id="provisional-message" class="notice warning" hidden></p>
+      </section>
+
+      <section class="summary-grid" aria-label="Draft summary">
+        <article class="metric-card">
+          <span>Draft profile</span>
+          <strong id="draft-profile">12 teams · Pick 1</strong>
+          <small id="format-profile">PPR · 1 flex</small>
+        </article>
+        <article class="metric-card">
+          <span>Next selection</span>
+          <strong id="next-pick">1.01</strong>
+          <small id="next-overall">Overall pick 1</small>
+        </article>
+        <article class="metric-card">
+          <span>Risk guardrail</span>
+          <strong>12 picks early max</strong>
+          <small>Controlled reaches require a large value case.</small>
+        </article>
+      </section>
+
+      <section class="panel picks-panel" aria-labelledby="picks-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Snake draft map</p>
+            <h2 id="picks-title">Your first 12 picks</h2>
+          </div>
+          <p>Overall draft selections calculated from your slot and league size.</p>
+        </div>
+        <ol id="pick-map" class="pick-map"></ol>
+      </section>
+
+      <section class="panel queue-panel" aria-labelledby="queue-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Round-by-round queue</p>
+            <h2 id="queue-title">Targets with 3–4 alternatives</h2>
+          </div>
+          <p>Recommendations use Yahoo as the primary market reference and the configured scoring ranks.</p>
+        </div>
+        <div class="legend" aria-label="Recommendation labels">
+          <span class="tag major-steal">Major steal</span>
+          <span class="tag high-priority">High priority</span>
+          <span class="tag fair">Fair</span>
+          <span class="tag avoid">Avoid</span>
+        </div>
+        <div id="draft-queue" class="draft-queue" aria-live="polite"></div>
+      </section>
+
+      <section class="lower-grid">
+        <section class="panel rankings-panel" aria-labelledby="rankings-title">
+          <div class="section-heading rankings-heading">
+            <div>
+              <p class="eyebrow">Rankings board</p>
+              <h2 id="rankings-title">Scoring-aware player values</h2>
+            </div>
+            <label class="search-field">
+              <span class="sr-only">Search ranked players</span>
+              <input id="player-search" type="search" placeholder="Search players or positions">
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">Ranked players with market average draft position and target status</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Pos</th>
+                  <th scope="col">Yahoo ADP</th>
+                  <th scope="col">Market ADP</th>
+                  <th scope="col">Target window</th>
+                </tr>
+              </thead>
+              <tbody id="rankings-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="panel sources-panel" aria-labelledby="sources-title">
+          <p class="eyebrow">Market inputs</p>
+          <h2 id="sources-title">ADP sources</h2>
+          <p class="source-copy">Yahoo is weighted as the primary source. The other sources are retained so updates can identify market disagreement.</p>
+          <dl id="source-list" class="source-list"></dl>
+          <p class="method-note">Window logic: market (0–3 early), preferred (4–8 early), controlled reach (9–12 early only for large value), never more than 12 early.</p>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Seed data is a structured local sample, not live advice. Refresh rankings and ADPs before your draft.</p>
+    </footer>
+  </body>
+</html>
