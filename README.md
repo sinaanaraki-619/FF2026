@@ -55,6 +55,8 @@ Yahoo is intentionally the primary source (55% default weight). The remaining so
 
 The board displays Yahoo ADP, the secondary-source consensus (Sleeper, RTSports, and Real-Time normalized to their combined weight), and Target ADP. Target ADP is a 55% Yahoo / 45% secondary-consensus weighted average; values are never summed.
 
+The HTML fingerprints its JavaScript asset URLs. When updating `assets/data.js` or `assets/app.js`, change the `v=` value in `index.html` so GitHub Pages clients load the new board instead of a cached script.
+
 ## Target logic
 
 For each candidate, Draft Compass computes a source-weighted ADP and target window. Labels at a planned selection are:
