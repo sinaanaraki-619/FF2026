@@ -2,9 +2,9 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  # Deploy the published branch now and continue deploying main after the PR merges.
   push:
-    branches: ["main"]
+    branches: ["main", "sinaanaraki-619-build-draft-dashboard"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
