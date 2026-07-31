@@ -24,7 +24,8 @@
   const roundNeeds = [
     ["RB", "WR"], ["WR", "RB"], ["RB", "WR"], ["WR", "RB", "TE"], ["RB", "WR"],
     ["WR", "QB", "TE"], ["RB", "WR"], ["WR", "RB"], ["QB", "TE", "WR"], ["RB", "WR"],
-    ["WR", "RB", "TE"], ["RB", "WR", "QB"]
+    ["WR", "RB", "TE"], ["RB", "WR", "QB"], ["WR", "RB", "TE"], ["RB", "WR", "QB"],
+    ["RB", "WR", "TE"]
   ];
 
   const formatDate = (date) => new Intl.DateTimeFormat(undefined, {
@@ -183,6 +184,11 @@
     elements.queue.replaceChildren(...queue.map(({ pick, round, candidates }) => {
       const card = document.createElement("article");
       card.className = "round-card";
+      const fallback = candidates.length === 0
+        ? "<p class=\"queue-fallback\">No plausible target remains in this source-backed board. Refresh or expand the rankings before this pick.</p>"
+        : candidates.length < 3
+          ? `<p class="queue-fallback">Only ${candidates.length} plausible target${candidates.length === 1 ? "" : "s"} remain at this pick.</p>`
+          : "";
       card.innerHTML = `
         <header><strong>Round ${round}</strong><span>${formatPick(pick, state.teams)} · Overall ${pick}</span></header>
         ${candidates.length ? `<ol class="queue-options">
@@ -194,7 +200,7 @@
               </span>
               <span class="tag ${status.className}">${status.label}</span>
             </li>`).join("")}
-        </ol>` : `<p class="queue-fallback">No plausible target remains in this seed board. Refresh or expand the rankings before this pick.</p>`}`;
+        </ol>${fallback}` : fallback}`;
       return card;
     }));
   };
@@ -232,7 +238,7 @@
   const render = () => {
     const state = getState();
     const players = getPlayers(state.scoring);
-    const picks = snakePicks(state.teams, state.slot, 12);
+    const picks = snakePicks(state.teams, state.slot, 15);
     renderMeta(state);
     renderPickMap(state, picks);
     renderQueue(getQueue(players, picks, state), state);

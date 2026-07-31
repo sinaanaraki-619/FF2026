@@ -1,6 +1,6 @@
 # Draft Compass
 
-A dependency-free, static fantasy football draft dashboard for GitHub Pages. It calculates snake-draft picks, swaps PPR and half-PPR boards, uses source-weighted ADP, and creates a 12-round queue with alternatives and risk labels.
+A dependency-free, static fantasy football draft dashboard for GitHub Pages. It calculates snake-draft picks, swaps PPR and half-PPR boards, uses source-weighted ADP, and creates a 15-round queue with alternatives and risk labels.
 
 ## Run locally
 
@@ -16,6 +16,12 @@ Validate the Yahoo-primary ADP aggregation and the checked multi-source player v
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-adp.ps1
+```
+
+Validate the full 15-round queue across every scoring, league-size, draft-slot, and flex combination:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-fifteen-round-queue.ps1
 ```
 
 ## Publish with GitHub Pages
@@ -73,3 +79,5 @@ For each candidate, Draft Compass computes a source-weighted ADP and target wind
 The guardrail never recommends a player more than 12 picks early.
 
 Queue recommendations also have an availability gate. Yahoo ADP is checked first against the supplied source `AVG`. A player is excluded when **both** Yahoo and consensus are more than half a draft round earlier than the planned pick (5 picks in 10-team leagues, 6 in 12-team leagues, and 7 in 14-team leagues). This keeps implausibly expired players out of both primary and alternate targets while still allowing realistic falls. If the local board has no eligible player left, the relevant round explains that more current rankings are needed.
+
+The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB/WR depth first, with TE and QB contingency options; the selected position path, Yahoo/AVG availability gate, and risk labels continue to apply through the final round.
