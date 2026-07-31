@@ -64,6 +64,22 @@ The board displays Yahoo ADP, the supplied source consensus (`AVG`), and Target 
 
 The HTML fingerprints its JavaScript asset URLs. When updating `assets/data.js` or `assets/app.js`, change the `v=` value in `index.html` so GitHub Pages clients load the new board instead of a cached script.
 
+## DraftSharks consensus snapshots
+
+DraftSharks is optional comparison data and **does not overwrite** the local Yahoo-primary/Guru-backed board. The dashboard always provides an **Open DraftSharks source** link for the selected scoring and league size:
+
+- PPR: `https://www.draftsharks.com/adp/ppr/consensus/{10|12|14}`
+- Half-PPR: `https://www.draftsharks.com/adp/half-ppr/consensus/{10|12|14}`
+
+To attempt a saved snapshot refresh:
+
+1. Set scoring and league size in the dashboard.
+2. Select **Refresh DraftSharks ADP**.
+3. In GitHub Actions, select **Run workflow**, choose the same `scoring` and `teams` inputs, and start it on the published branch.
+4. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The dashboard displays its saved timestamp, filter, and record count.
+
+The workflow uses the public page only, checks its response for a stable table containing at least 20 unique player/ADP rows, and commits nothing if that validation fails. It writes an Actions summary and downloadable report explaining the failure, while preserving all dashboard rankings. DraftSharks can render dynamic or protected markup, so a failed workflow is expected behavior—not a partial import. In that case, use the selected source link and retain/export a permitted table for manual review before updating local source data.
+
 ## Target logic
 
 For each candidate, Draft Compass computes a source-weighted ADP and target window. Labels at a planned selection are:

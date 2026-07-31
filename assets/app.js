@@ -18,8 +18,14 @@
     queue: document.querySelector("#draft-queue"),
     rankings: document.querySelector("#rankings-body"),
     sources: document.querySelector("#source-list"),
-    search: document.querySelector("#player-search")
+    search: document.querySelector("#player-search"),
+    draftSharksSource: document.querySelector("#draftsharks-source"),
+    draftSharksRefresh: document.querySelector("#draftsharks-refresh"),
+    draftSharksStatus: document.querySelector("#draftsharks-status")
   };
+
+  const workflowUrl = "https://github.com/sinaanaraki-619/FF2026/actions/workflows/refresh-draftsharks-adp.yml";
+  const draftSharksState = { snapshots: [] };
 
   const roundNeeds = [
     ["RB", "WR"], ["WR", "RB"], ["RB", "WR"], ["WR", "RB", "TE"], ["RB", "WR"],
@@ -122,6 +128,44 @@
   });
 
   const getPlayers = (scoring) => data.rankings[scoring].items;
+
+  const draftSharksScoring = (scoring) => scoring === "halfPpr" ? "half-ppr" : "ppr";
+
+  const draftSharksUrl = (state) => `https://www.draftsharks.com/adp/${draftSharksScoring(state.scoring)}/consensus/${state.teams}`;
+
+  const formatSnapshotDate = (date) => isAdp(Date.parse(date)) ? formatDate(date) : "unknown time";
+
+  const renderDraftSharks = (state) => {
+    const scoring = draftSharksScoring(state.scoring);
+    const sourceUrl = draftSharksUrl(state);
+    const snapshot = draftSharksState.snapshots.find((item) => item.scoring === scoring && Number(item.teams) === state.teams);
+    elements.draftSharksSource.href = sourceUrl;
+    elements.draftSharksSource.textContent = `Open DraftSharks ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} ${state.teams}-team source`;
+    elements.draftSharksRefresh.href = `${workflowUrl}?query=branch%3Asinaanaraki-619-build-draft-dashboard`;
+
+    if (snapshot) {
+      elements.draftSharksStatus.textContent = `Validated DraftSharks snapshot: ${snapshot.recordCount} players, saved ${formatSnapshotDate(snapshot.fetchedAt)} for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams.`;
+    } else {
+      elements.draftSharksStatus.textContent = `No validated DraftSharks snapshot is saved for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams. Open the source or run the guarded refresh workflow.`;
+    }
+  };
+
+  const loadDraftSharksSnapshots = async () => {
+    try {
+      const response = await fetch(`data/draftsharks-snapshots.json?cache=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      if (!Array.isArray(payload.snapshots)) {
+        throw new Error("invalid snapshot payload");
+      }
+      draftSharksState.snapshots = payload.snapshots;
+    } catch (error) {
+      elements.draftSharksStatus.textContent = "DraftSharks snapshot metadata could not be loaded. The local Yahoo-primary board is unaffected; open the source or run the guarded refresh workflow.";
+    }
+    renderDraftSharks(getState());
+  };
 
   const renderSlots = () => {
     const teams = Number(elements.teams.value);
@@ -243,6 +287,7 @@
     renderPickMap(state, picks);
     renderQueue(getQueue(players, picks, state), state);
     renderRankings(players, state);
+    renderDraftSharks(state);
   };
 
   elements.teams.addEventListener("change", () => {
@@ -254,5 +299,6 @@
 
   renderSlots();
   renderSources();
+  loadDraftSharksSnapshots();
   render();
 }());

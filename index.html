@@ -70,6 +70,22 @@
         <p id="provisional-message" class="notice warning" hidden></p>
       </section>
 
+      <section class="panel draftsharks-panel" aria-labelledby="draftsharks-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Optional market snapshot</p>
+            <h2 id="draftsharks-title">DraftSharks consensus ADP</h2>
+          </div>
+          <p>DraftSharks is a separate comparison snapshot; it never replaces the Yahoo-primary local board automatically.</p>
+        </div>
+        <p id="draftsharks-status" class="draftsharks-status" aria-live="polite">Loading DraftSharks snapshot metadata...</p>
+        <div class="draftsharks-actions">
+          <a id="draftsharks-source" class="button-link secondary-button" href="https://www.draftsharks.com/adp/ppr/consensus/12" target="_blank" rel="noopener">Open DraftSharks source</a>
+          <a id="draftsharks-refresh" class="button-link" href="https://github.com/sinaanaraki-619/FF2026/actions/workflows/refresh-draftsharks-adp.yml" target="_blank" rel="noopener">Refresh DraftSharks ADP</a>
+        </div>
+        <p class="method-note">Refresh opens the manual GitHub Actions workflow: choose the matching scoring and team count, then run it. It commits a snapshot only when the public page exposes at least 20 validated player/ADP rows; a failed run leaves this board unchanged and links back to the manual source.</p>
+      </section>
+
       <section class="summary-grid" aria-label="Draft summary">
         <article class="metric-card">
           <span>Draft profile</span>
@@ -158,7 +174,7 @@
     </main>
 
     <footer class="site-footer">
-      <p>Seed data is a structured local sample, not live advice. Refresh rankings and ADPs before your draft.</p>
+      <p>Source-backed local data, not live advice. Refresh rankings and ADPs before your draft.</p>
     </footer>
   </body>
 </html>

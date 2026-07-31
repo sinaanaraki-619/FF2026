@@ -1,0 +1,73 @@
+name: Refresh DraftSharks ADP snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      scoring:
+        description: DraftSharks scoring filter
+        required: true
+        type: choice
+        options: [ppr, half-ppr]
+      teams:
+        description: DraftSharks league-size filter
+        required: true
+        type: choice
+        options: ["10", "12", "14"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draftsharks-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attempt validated public snapshot refresh
+        id: refresh
+        continue-on-error: true
+        run: |
+          mkdir -p refresh-report
+          python3 scripts/refresh-draftsharks-snapshot.py \
+            --scoring "${{ inputs.scoring }}" \
+            --teams "${{ inputs.teams }}" \
+            --snapshot-path data/draftsharks-snapshots.json \
+            --report-path refresh-report/report.md
+
+      - name: Publish refresh report
+        if: always()
+        run: cat refresh-report/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload refresh report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: draftsharks-refresh-report
+          path: refresh-report/report.md
+
+      - name: Commit validated snapshot
+        if: steps.refresh.outcome == 'success'
+        run: |
+          if git diff --quiet -- data/draftsharks-snapshots.json; then
+            echo "Validated snapshot did not change; no commit needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/draftsharks-snapshots.json
+          git commit -m "Refresh DraftSharks ADP snapshot"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Fail without changing dashboard data
+        if: steps.refresh.outcome != 'success'
+        run: |
+          echo "No validated DraftSharks snapshot was committed."
+          exit 1
