@@ -75,8 +75,9 @@ To attempt a saved snapshot refresh:
 
 1. Set scoring and league size in the dashboard.
 2. Select **Refresh DraftSharks ADP**.
-3. In GitHub Actions, select **Run workflow**, choose the same `scoring` and `teams` inputs, and start it on the published branch.
-4. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The dashboard displays its saved timestamp, filter, and record count.
+3. If the refresh workflow is still only in an open PR, merge it to the default branch first—GitHub registers `workflow_dispatch` controls from the default branch.
+4. In GitHub Actions, select **Run workflow**, choose the same `scoring` and `teams` inputs, and start it on the published branch.
+5. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The dashboard displays its saved timestamp, filter, and record count.
 
 The workflow uses the public page only, checks its response for a stable table containing at least 20 unique player/ADP rows, and commits nothing if that validation fails. It writes an Actions summary and downloadable report explaining the failure, while preserving all dashboard rankings. DraftSharks can render dynamic or protected markup, so a failed workflow is expected behavior—not a partial import. In that case, use the selected source link and retain/export a permitted table for manual review before updating local source data.
 

@@ -23,7 +23,8 @@ foreach ($required in @(
   'const draftSharksScoring = (scoring) => scoring === "halfPpr" ? "half-ppr" : "ppr";',
   'https://www.draftsharks.com/adp/${draftSharksScoring(state.scoring)}/consensus/${state.teams}',
   'fetch(`data/draftsharks-snapshots.json?cache=${Date.now()}`, { cache: "no-store" })',
-  'DraftSharks snapshot metadata could not be loaded. The local Yahoo-primary board is unaffected'
+  'DraftSharks snapshot metadata could not be loaded. The local Yahoo-primary board is unaffected',
+  'The queue continues to use the local Yahoo-primary board refreshed'
 )) {
   if (-not $app.Contains($required)) {
     throw "Missing DraftSharks application behavior: $required"

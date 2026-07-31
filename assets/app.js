@@ -144,9 +144,9 @@
     elements.draftSharksRefresh.href = `${workflowUrl}?query=branch%3Asinaanaraki-619-build-draft-dashboard`;
 
     if (snapshot) {
-      elements.draftSharksStatus.textContent = `Validated DraftSharks snapshot: ${snapshot.recordCount} players, saved ${formatSnapshotDate(snapshot.fetchedAt)} for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams.`;
+      elements.draftSharksStatus.textContent = `Validated DraftSharks snapshot: ${snapshot.recordCount} players, saved ${formatSnapshotDate(snapshot.fetchedAt)} for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams. It is separate from the local Yahoo-primary board.`;
     } else {
-      elements.draftSharksStatus.textContent = `No validated DraftSharks snapshot is saved for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams. Open the source or run the guarded refresh workflow.`;
+      elements.draftSharksStatus.textContent = `No validated DraftSharks snapshot is saved for ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams} teams. The queue continues to use the local Yahoo-primary board refreshed ${formatDate(data.meta.dataLastRefreshed)}.`;
     }
   };
 
