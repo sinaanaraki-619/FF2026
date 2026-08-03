@@ -48,7 +48,7 @@ foreach ($required in @(
   'const tierDropBeforeNextPick = (player, nextPick, market, scarcity) =>',
   'const rosterNeed = (player, roster) =>',
   'const scarcityAction = (player, pick, nextPick, market, scarcity, roster, marketAction) =>',
-  'const leagueWideStarterCounts = { QB: 12, RB: 24, WR: 24, TE: 12 };',
+  'const leagueWideStarterCounts = Object.fromEntries(Object.entries(starterCounts).map(([position, count]) => [',
   'state.receptionPoints'
 )) {
   if (-not $app.Contains($required)) {

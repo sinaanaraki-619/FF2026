@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
     <script src="assets/projections.js?v=20260803-league-model" defer></script>
-    <script src="assets/app.js?v=20260803-league-model" defer></script>
+    <script src="assets/app.js?v=20260803-live-draft" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -52,8 +52,109 @@
             <span>Draft position</span>
             <select id="slot" name="slot"></select>
           </label>
+          <label>
+            <span>League size</span>
+            <select id="teams" name="teams">
+              <option value="10">10 teams</option>
+              <option value="12" selected>12 teams</option>
+              <option value="14">14 teams</option>
+            </select>
+          </label>
+          <label>
+            <span>W/R/T flex slots</span>
+            <select id="flex" name="flex">
+              <option value="1">1 flex</option>
+              <option value="2" selected>2 flexes</option>
+            </select>
+          </label>
         </form>
         <p id="provisional-message" class="notice warning" hidden></p>
+      </section>
+
+      <section class="panel draft-mode-panel" aria-labelledby="draft-mode-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Offline draft room</p>
+            <h2 id="draft-mode-title">Live Draft + Mock Draft</h2>
+          </div>
+          <p>Manual draft tracking stays in this browser. Mock managers are a deterministic practice model, not a prediction of real people.</p>
+        </div>
+        <div class="draft-controls">
+          <label>
+            <span>Mode</span>
+            <select id="draft-mode" name="draft-mode">
+              <option value="cheat">Cheat Sheet</option>
+              <option value="live">Live Draft</option>
+              <option value="mock">Mock Draft</option>
+            </select>
+          </label>
+          <label>
+            <span>Assign manual pick to</span>
+            <select id="draft-team" name="draft-team"></select>
+          </label>
+          <label>
+            <span>Mock seed</span>
+            <input id="mock-seed" name="mock-seed" type="number" value="2026" min="1" step="1">
+          </label>
+          <label>
+            <span>AI risk / reach tolerance</span>
+            <input id="ai-risk" name="ai-risk" type="range" value="50" min="0" max="100">
+          </label>
+        </div>
+        <div class="draft-actions">
+          <button id="mock-next" type="button">Play next AI pick</button>
+          <button id="mock-run" type="button">Auto-run to my pick</button>
+          <button id="draft-undo" type="button">Undo last pick</button>
+          <button id="mock-new" type="button">New mock</button>
+          <button id="draft-reset" type="button" class="secondary-button">Reset draft</button>
+        </div>
+        <p id="draft-status" class="draft-status" aria-live="polite">Choose Live Draft or Mock Draft to open the offline draft room.</p>
+      </section>
+
+      <section id="draft-room" class="draft-room" hidden aria-label="Interactive draft room">
+        <section class="panel priority-panel" aria-labelledby="priority-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Your next decision</p>
+              <h2 id="priority-title">Positional priority</h2>
+            </div>
+            <p id="conditional-survival-note">Model estimate uses ADP, current rosters, tiers, and intervening teams.</p>
+          </div>
+          <div id="priority-panel" class="priority-panel-content"></div>
+        </section>
+        <section class="panel draft-board-panel" aria-labelledby="draft-board-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Draft board</p>
+              <h2 id="draft-board-title">Current pick</h2>
+            </div>
+            <p id="current-pick" class="current-pick" aria-live="polite"></p>
+          </div>
+          <div class="draft-room-grid">
+            <section>
+              <label class="search-field">
+                <span class="sr-only">Search available players</span>
+                <input id="draft-player-search" type="search" placeholder="Search available players">
+              </label>
+              <div id="available-players" class="available-players" aria-live="polite"></div>
+            </section>
+            <section>
+              <h3>Drafted board</h3>
+              <ol id="drafted-board" class="drafted-board"></ol>
+            </section>
+          </div>
+        </section>
+        <section class="panel rosters-panel" aria-labelledby="rosters-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Rosters</p>
+              <h2 id="rosters-title">Managers and your roster</h2>
+            </div>
+            <p>Roster counts update after every pick; K/DEF are tracked but do not drive flex scarcity.</p>
+          </div>
+          <div id="user-roster" class="user-roster"></div>
+          <div id="manager-rosters" class="manager-rosters"></div>
+        </section>
       </section>
 
       <section class="panel league-model-panel" aria-labelledby="league-model-title">

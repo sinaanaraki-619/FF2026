@@ -127,6 +127,26 @@ The displayed **Available at this pick** value is the upper-tail probability tha
 
 The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB/WR depth first, with TE and QB contingency options; the selected position path, active-consensus availability model, and risk labels continue to apply through the final round.
 
+## Live Draft and Mock Draft
+
+Use the **Mode** selector for three offline modes:
+
+- **Cheat Sheet** keeps the existing source-backed queue.
+- **Live Draft** lets you click available players into the current snake pick, or assign a manual correction to a selected team. It stores that pick list only in browser `localStorage`, keyed by scoring format, league size, draft slot, and flex count. Undo removes the latest pick; Reset asks for confirmation and clears that local draft.
+- **Mock Draft** reserves your snake picks for manual clicks. **Play next AI pick** advances one opposing pick; **Auto-run to my pick** advances AI opponents until your next turn. **New mock** resets the deterministic seed. AI is a practice heuristic, not a forecast of real managers: it weights ADP proximity, Guru rank/value, position need, tier drop, and the configurable reach-tolerance slider, while never selecting an already drafted player.
+
+The live conditional survival figure starts from the ADP survival model, then applies roster/game-theory pressure for the teams drafting before your next pick:
+
+`adjusted = baseline × (1 - 0.32 × position-need rate - 0.12 × same-tier run rate) + 0.12 × (1 - baseline)` when no intervening team needs that position, capped at 97%.
+
+It is explicitly a **model estimate**, not certainty. For example, when all intervening teams already have a QB, QB survival rises above baseline but is never stated as guaranteed. The priority panel turns this estimate, roster need, positional tier drop, ADP value, and VORP where available into a target plus three alternatives and **Take Now**, **Wait**, or **Pivot** guidance.
+
+Validate interactive-draft logic:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-interactive-draft.ps1
+```
+
 ## Custom 12-team league model
 
 The dashboard exposes two exact 12-team formats:

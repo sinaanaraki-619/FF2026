@@ -149,7 +149,7 @@ h2 {
 }
 
 .league-filters {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 label > span {
@@ -273,6 +273,155 @@ a:focus-visible {
 
 .button-link:hover {
   filter: brightness(1.08);
+}
+
+button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: .65rem .9rem;
+  color: #042f22;
+  background: var(--accent);
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+button.secondary-button {
+  color: var(--ink);
+}
+
+.draft-controls,
+.draft-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.draft-actions {
+  grid-template-columns: repeat(5, max-content);
+  margin-top: 1rem;
+}
+
+.draft-status {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+.draft-room {
+  display: grid;
+  gap: 1rem;
+}
+
+.priority-panel-content {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.priority-card,
+.user-roster,
+.manager-rosters article {
+  padding: .8rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgb(4 12 22 / 32%);
+}
+
+.priority-card strong,
+.priority-card span {
+  display: block;
+}
+
+.priority-card span {
+  color: var(--muted);
+  font-size: .78rem;
+}
+
+.priority-card strong {
+  margin: .2rem 0;
+}
+
+.draft-room-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 1rem;
+}
+
+.available-players,
+.drafted-board {
+  display: grid;
+  gap: .4rem;
+  max-height: 31rem;
+  overflow-y: auto;
+  margin: .75rem 0 0;
+}
+
+.available-player,
+.drafted-board li {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  align-items: center;
+  padding: .65rem .75rem;
+  border: 1px solid rgb(45 64 89 / 70%);
+  border-radius: 8px;
+  background: rgb(5 13 24 / 35%);
+  font-size: .85rem;
+}
+
+.available-player small,
+.drafted-board small,
+.roster-list {
+  color: var(--muted);
+  font-size: .75rem;
+}
+
+.available-player button {
+  flex: 0 0 auto;
+  padding: .45rem .6rem;
+  font-size: .75rem;
+}
+
+.current-pick {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.user-roster {
+  margin-bottom: .75rem;
+}
+
+.manager-rosters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+}
+
+.manager-rosters h3,
+.draft-room-grid h3 {
+  margin: 0 0 .5rem;
+  font-size: .95rem;
+}
+
+.manager-rosters article.user-manager {
+  border-color: var(--accent);
+}
+
+.roster-list {
+  margin: 0;
+  padding-left: 1.1rem;
 }
 
 .warning {
@@ -576,6 +725,10 @@ td:first-child {
 
   .filters,
   .league-filters,
+  .draft-controls,
+  .priority-panel-content,
+  .draft-room-grid,
+  .manager-rosters,
   .summary-grid,
   .lower-grid,
   .draft-queue,
@@ -590,6 +743,10 @@ td:first-child {
 
   .search-field {
     width: 100%;
+  }
+
+  .draft-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
