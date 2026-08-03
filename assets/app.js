@@ -28,8 +28,14 @@
     draftSharksLocalRefresh: document.querySelector("#draftsharks-local-refresh"),
     draftSharksSourceUpdated: document.querySelector("#draftsharks-source-updated"),
     draftSharksStatus: document.querySelector("#draftsharks-status"),
-    draftMode: document.querySelector("#draft-mode"),
     aiRisk: document.querySelector("#ai-risk"),
+    settingsLockStatus: document.querySelector("#settings-lock-status"),
+    tabs: [...document.querySelectorAll('[role="tab"]')],
+    cheatPanel: document.querySelector("#cheat-panel"),
+    mockPanel: document.querySelector("#mock-panel"),
+    livePanel: document.querySelector("#live-panel"),
+    draftModeTitle: document.querySelector("#draft-mode-title"),
+    draftModeDescription: document.querySelector("#draft-mode-description"),
     draftStart: document.querySelector("#draft-start"),
     mockNext: document.querySelector("#mock-next"),
     mockRun: document.querySelector("#mock-run"),
@@ -76,14 +82,20 @@
     ["WR", "RB", "TE"], ["RB", "WR", "QB"], ["WR", "RB", "TE"], ["RB", "WR", "QB"],
     ["RB", "WR", "TE"]
   ];
-  const draftRoomState = {
+  const createDraftRoomState = (mode) => ({
     picks: [],
-    mode: "cheat",
-    risk: 50,
+    mode,
     started: false,
     storageMessage: "",
-    statusMessage: ""
+    statusMessage: "",
+    initialized: mode !== "live"
+  });
+  const draftModeStates = {
+    live: createDraftRoomState("live"),
+    mock: createDraftRoomState("mock")
   };
+  let activeWorkflow = "cheat";
+  let draftRoomState = draftModeStates.mock;
 
   const formatDate = (date) => new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium", timeStyle: "short"
@@ -794,11 +806,13 @@
       elements.slot,
       elements.teams,
       elements.flex,
-      elements.draftMode,
       elements.aiRisk
     ].forEach((control) => {
       control.disabled = locked;
     });
+    elements.settingsLockStatus.textContent = locked
+      ? "Settings are locked while a Live or Mock Draft is in progress. Restart that draft to change the shared configuration."
+      : "Settings are editable until you start a Live or Mock Draft.";
   };
 
   const overallPickForCell = (round, team, teams) => round % 2 === 1
@@ -835,23 +849,22 @@
   };
 
   const renderDraftRoom = (players, state, market, scarcity) => {
-    const mode = elements.draftMode.value;
-    draftRoomState.mode = mode;
-    elements.draftRoom.hidden = mode === "cheat";
+    const mode = activeWorkflow;
+    setDraftSettingsLocked(Object.values(draftModeStates).some((draft) => draft.started));
+    if (mode === "cheat") {
+      return;
+    }
     renderDraftConfiguration(state);
-    setDraftSettingsLocked(mode !== "cheat" && draftRoomState.started);
-    elements.draftStart.hidden = mode === "cheat";
-    elements.draftStart.disabled = mode === "cheat" || draftRoomState.started;
+    elements.draftModeTitle.textContent = mode === "mock" ? "Mock Draft" : "Live Draft";
+    elements.draftModeDescription.textContent = mode === "mock"
+      ? "Mock managers use an ADP-led, roster-aware simulation—not a prediction of real people."
+      : "Manual draft tracking stays in this browser. Every team remains a manual active pick.";
+    elements.draftStart.disabled = draftRoomState.started;
     elements.draftStart.textContent = mode === "mock" ? "Start Mock Draft" : "Start Live Draft";
     elements.mockNext.disabled = mode !== "mock" || !draftRoomState.started;
     elements.mockRun.disabled = mode !== "mock" || !draftRoomState.started;
-    elements.draftUndo.disabled = mode === "cheat" || !draftRoomState.started || draftRoomState.picks.length === 0;
-    elements.draftReset.disabled = mode === "cheat";
-    if (mode === "cheat") {
-      renderDraftMatrix(players, state, getCurrentOverallPick());
-      elements.draftStatus.textContent = "Cheat Sheet mode leaves the offline draft board inactive.";
-      return;
-    }
+    elements.draftUndo.disabled = !draftRoomState.started || draftRoomState.picks.length === 0;
+    elements.draftReset.disabled = false;
     const currentPick = getCurrentOverallPick();
     const rosters = renderRosters(players, state);
     const playerById = new Map(players.map((player) => [player.id, player]));
@@ -1089,10 +1102,47 @@
     renderDraftRoom(players, state, market, scarcity);
   };
 
+  const activateWorkflow = (workflow, focusTab = false) => {
+    if (!["cheat", "mock", "live"].includes(workflow)) {
+      return;
+    }
+    activeWorkflow = workflow;
+    if (workflow !== "cheat") {
+      draftRoomState = draftModeStates[workflow];
+      if (workflow === "live" && !draftRoomState.initialized) {
+        loadLiveDraft(getState());
+        draftRoomState.initialized = true;
+      }
+      (workflow === "mock" ? elements.mockPanel : elements.livePanel).append(elements.draftRoom);
+    }
+    const selectedTabId = `tab-${workflow}`;
+    elements.tabs.forEach((tab) => {
+      const selected = tab.id === selectedTabId;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      if (selected && focusTab) {
+        tab.focus();
+      }
+    });
+    elements.cheatPanel.hidden = workflow !== "cheat";
+    elements.mockPanel.hidden = workflow !== "mock";
+    elements.livePanel.hidden = workflow !== "live";
+    render();
+  };
+
   const resetDraftForSettings = () => {
-    draftRoomState.picks = [];
-    draftRoomState.started = false;
-    draftRoomState.statusMessage = "";
+    if (Object.values(draftModeStates).some((draft) => draft.started)) {
+      return;
+    }
+    Object.values(draftModeStates).forEach((draft) => {
+      draft.picks = [];
+      draft.started = false;
+      draft.statusMessage = "";
+      draft.storageMessage = "";
+      if (draft.mode === "live") {
+        draft.initialized = false;
+      }
+    });
     renderSlots();
     render();
   };
@@ -1103,27 +1153,29 @@
   elements.search.addEventListener("input", render);
   elements.draftPlayerSearch.addEventListener("input", render);
   [elements.draftPositionFilter, elements.draftNeedsOnly, elements.aiRisk].forEach((control) => control.addEventListener("change", render));
-  elements.draftMode.addEventListener("change", () => {
-    const state = getState();
-    draftRoomState.mode = elements.draftMode.value;
-    draftRoomState.statusMessage = "";
-    draftRoomState.started = false;
-    if (draftRoomState.mode === "live") {
-      loadLiveDraft(state);
-    } else if (draftRoomState.mode === "mock") {
-      draftRoomState.picks = [];
-    }
-    render();
+  elements.tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activateWorkflow(tab.id.replace("tab-", "")));
+    tab.addEventListener("keydown", (event) => {
+      const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+      if (!keys.includes(event.key)) {
+        return;
+      }
+      event.preventDefault();
+      const nextIndex = event.key === "Home" ? 0
+        : event.key === "End" ? elements.tabs.length - 1
+          : (index + (event.key === "ArrowRight" ? 1 : -1) + elements.tabs.length) % elements.tabs.length;
+      activateWorkflow(elements.tabs[nextIndex].id.replace("tab-", ""), true);
+    });
   });
   elements.draftStart.addEventListener("click", () => {
     const state = getState();
-    if (draftRoomState.mode === "cheat" || draftRoomState.started) {
+    if (activeWorkflow === "cheat" || draftRoomState.started) {
       return;
     }
     draftRoomState.picks = [];
     draftRoomState.started = true;
     draftRoomState.statusMessage = "";
-    if (draftRoomState.mode === "mock") {
+    if (activeWorkflow === "mock") {
       const players = getPlayers(state.scoring);
       const market = getMarketContext(state);
       const scarcity = createScarcityModel(players, state, market);
@@ -1142,11 +1194,11 @@
     const state = getState();
     const currentPick = getCurrentOverallPick();
     const snakeOwner = pickOwner(currentPick, state.teams);
-    if (!draftRoomState.started || (draftRoomState.mode === "mock" && snakeOwner !== state.slot)) {
+    if (!draftRoomState.started || (activeWorkflow === "mock" && snakeOwner !== state.slot)) {
       return;
     }
     if (addDraftPick(button.dataset.draftPlayer, state, snakeOwner)) {
-      if (draftRoomState.mode === "mock") {
+      if (activeWorkflow === "mock") {
         const players = getPlayers(state.scoring);
         const market = getMarketContext(state);
         const scarcity = createScarcityModel(players, state, market);
@@ -1156,7 +1208,7 @@
     }
   });
   elements.mockNext.addEventListener("click", () => {
-    if (draftRoomState.mode !== "mock" || !draftRoomState.started) {
+    if (activeWorkflow !== "mock" || !draftRoomState.started) {
       return;
     }
     const state = getState();
@@ -1167,7 +1219,7 @@
     render();
   });
   elements.mockRun.addEventListener("click", () => {
-    if (draftRoomState.mode !== "mock" || !draftRoomState.started) {
+    if (activeWorkflow !== "mock" || !draftRoomState.started) {
       return;
     }
     const state = getState();
@@ -1189,7 +1241,9 @@
     if (window.confirm("Restart this draft and unlock all settings? This clears the current board.")) {
       draftRoomState.picks = [];
       draftRoomState.started = false;
-      draftRoomState.statusMessage = "Draft reset. Settings are unlocked.";
+      draftRoomState.statusMessage = Object.values(draftModeStates).some((draft) => draft.started)
+        ? "Draft reset. Shared settings remain locked because another draft is still in progress."
+        : "Draft reset. Settings are unlocked.";
       clearLiveDraft(getState());
       render();
     }

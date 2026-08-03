@@ -30,7 +30,16 @@ function Get-ConditionalSurvival {
 }
 
 foreach ($required in @(
-  'id="draft-mode"',
+  'role="tablist"',
+  'id="tab-cheat"',
+  'id="tab-mock"',
+  'id="tab-live"',
+  'role="tab"',
+  'role="tabpanel"',
+  'aria-controls="cheat-panel"',
+  'aria-controls="mock-panel"',
+  'aria-controls="live-panel"',
+  'id="settings-lock-status"',
   'id="draft-start"',
   'id="your-team"',
   'id="draft-config-summary"',
@@ -65,6 +74,13 @@ foreach ($required in @(
   'const renderRosterConstruction = (state, rosters, playerById) =>',
   'const renderDraftConfiguration = (state) =>',
   'const setDraftSettingsLocked = (locked) =>',
+  'const activateWorkflow = (workflow, focusTab = false) =>',
+  'const draftModeStates = {',
+  'let activeWorkflow = "cheat";',
+  'draftRoomState = draftModeStates[workflow];',
+  'elements.cheatPanel.hidden = workflow !== "cheat";',
+  'elements.mockPanel.hidden = workflow !== "mock";',
+  'elements.livePanel.hidden = workflow !== "live";',
   'const formatByeWeek = (player) =>',
   'const randomUnit = () =>',
   'const sampleStandardNormal = () =>',
@@ -90,6 +106,9 @@ foreach ($required in @(
   if (-not $data.Contains('byeWeek')) {
     throw "Source-backed player data does not expose bye weeks."
   }
+}
+if ($app -match 'elements\.draftMode(?:[;,\s\)\]])' -or $index.Contains('id="draft-mode"')) {
+  throw "The retired draft-mode select still controls workflow state."
 }
 
 function Get-NextUserPick {
@@ -161,6 +180,22 @@ if ($settingsLocked) {
 $livePicksAfterStart = @()
 if ($livePicksAfterStart.Count -ne 0) {
   throw "Live Draft auto-selected a player instead of waiting for manual entry."
+}
+
+$workflowStates = @{
+  live = @{ picks = @("live-player"); started = $true }
+  mock = @{ picks = @("mock-player"); started = $true }
+}
+$activeWorkflow = "mock"
+if ($workflowStates.live.picks[0] -ne "live-player" -or $workflowStates.mock.picks[0] -ne "mock-player") {
+  throw "Switching workflows did not retain independent Live and Mock draft boards."
+}
+if (-not ($workflowStates.live.started -or $workflowStates.mock.started)) {
+  throw "Shared settings did not remain locked while an inactive workflow draft was active."
+}
+$activeWorkflow = "live"
+if ($workflowStates.$activeWorkflow.picks.Count -ne 1) {
+  throw "Returning to a workflow did not retain its in-progress state."
 }
 if ((Format-ByeWeek 7) -ne "Bye 7" -or (Format-ByeWeek $null) -ne "Bye unavailable") {
   throw "Bye-week display does not handle sourced and missing values."

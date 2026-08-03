@@ -129,11 +129,12 @@ The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB
 
 ## Live Draft and Mock Draft
 
-Use the **Mode** selector for three offline modes:
+The persistent setup bar stays above three keyboard-accessible workflow tabs: **Cheat Sheet**, **Mock Draft**, and **Live Draft**. Use Arrow keys, Home, or End while focused on a tab to switch workflows. Tabs preserve the selected format, league size, draft position, flexes, and AI risk setting.
 
-- **Cheat Sheet** keeps the existing source-backed queue.
+- **Cheat Sheet** keeps the existing source-backed queue and analysis only.
+- **Mock Draft** and **Live Draft** each retain their own in-progress board when switching tabs. Tab changes never reset, restart, or mutate a board.
 - **Draft position is your team.** The dashboard labels it as `Your team: pick X (Team X)` and uses that selected slot for every user recommendation and Mock-Draft user turn; it is not independently configurable.
-- Set format, league size, draft position, flexes, mode, and AI risk, then select **Start Live Draft** or **Start Mock Draft**. Starting locks those settings and shows the active configuration. **Restart / unlock settings** asks for confirmation, clears the current board, and makes setup editable again.
+- Set format, league size, draft position, flexes, and AI risk before selecting **Start Live Draft** or **Start Mock Draft**. Starting either draft locks the shared setup bar and shows the active configuration. **Restart / unlock settings** asks for confirmation and clears only the current workflow board; settings unlock after no active Live or Mock board remains.
 - **Live Draft** begins at overall pick 1 and waits for a manual player entry at every active snake pick. Each entry is assigned to that active team, so an offline manager can track every real selection without a separate team override. The in-progress board is stored only in browser `localStorage`, keyed by scoring format, league size, draft slot, and flex count.
 - **Mock Draft** automatically advances AI selections until the selected user team is on the clock, then waits for the user’s player click. After a user pick, it advances AI teams to the next user turn; **Play next AI pick** still permits one-pick-at-a-time observation. Every new mock uses fresh browser randomness—there is no seed control or repeatable mock sequence.
 

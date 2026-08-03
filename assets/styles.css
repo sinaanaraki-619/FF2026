@@ -149,7 +149,7 @@ h2 {
 }
 
 .league-filters {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 label > span {
@@ -173,9 +173,38 @@ input {
 
 select:focus-visible,
 input:focus-visible,
-a:focus-visible {
+a:focus-visible,
+button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+.settings-lock-status {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+.workflow-tabs {
+  display: flex;
+  gap: .45rem;
+  overflow-x: auto;
+  padding: .3rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  background: rgb(4 12 22 / 40%);
+}
+
+.workflow-tabs [role="tab"] {
+  flex: 1 0 max-content;
+  border-color: transparent;
+  color: var(--muted);
+  background: transparent;
+}
+
+.workflow-tabs [role="tab"][aria-selected="true"] {
+  color: #042f22;
+  background: var(--accent);
 }
 
 .notice {
@@ -1011,6 +1040,10 @@ td:first-child {
 }
 
 @media (max-width: 1060px) {
+  .league-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .draft-analyzer {
     grid-template-columns: minmax(17rem, .9fr) minmax(20rem, 1.1fr);
   }

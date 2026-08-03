@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260803-bye-weeks" defer></script>
     <script src="assets/projections.js?v=20260803-league-model" defer></script>
-    <script src="assets/app.js?v=20260803-stochastic-mock" defer></script>
+    <script src="assets/app.js?v=20260804-workflow-tabs" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -67,47 +67,44 @@
               <option value="2" selected>2 flexes</option>
             </select>
           </label>
+          <label>
+            <span>Mock AI risk / reach tolerance</span>
+            <input id="ai-risk" name="ai-risk" type="range" value="50" min="0" max="100">
+          </label>
         </form>
+        <p id="settings-lock-status" class="settings-lock-status" aria-live="polite">Settings are editable until you start a Live or Mock Draft.</p>
         <p id="provisional-message" class="notice warning" hidden></p>
       </section>
 
-      <section class="panel draft-mode-panel" aria-labelledby="draft-mode-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Offline draft room</p>
-            <h2 id="draft-mode-title">Live Draft + Mock Draft</h2>
-          </div>
-          <p>Manual draft tracking stays in this browser. Mock managers use an ADP-led, roster-aware simulation—not a prediction of real people.</p>
-        </div>
-        <div class="draft-controls">
-          <label>
-            <span>Mode</span>
-            <select id="draft-mode" name="draft-mode">
-              <option value="cheat">Cheat Sheet</option>
-              <option value="live">Live Draft</option>
-              <option value="mock">Mock Draft</option>
-            </select>
-          </label>
-          <label>
-            <span>AI risk / reach tolerance</span>
-            <input id="ai-risk" name="ai-risk" type="range" value="50" min="0" max="100">
-          </label>
-        </div>
-        <div class="draft-configuration" aria-live="polite">
-          <strong id="your-team">Your team: pick 1 (Team 1)</strong>
-          <span id="draft-config-summary">Choose a Live or Mock mode, then start when your settings are ready.</span>
-        </div>
-        <div class="draft-actions">
-          <button id="draft-start" type="button">Start Draft</button>
-          <button id="mock-next" type="button">Play next AI pick</button>
-          <button id="mock-run" type="button">Auto-run to my pick</button>
-          <button id="draft-undo" type="button">Undo last pick</button>
-          <button id="draft-reset" type="button" class="secondary-button">Restart / unlock settings</button>
-        </div>
-        <p id="draft-status" class="draft-status" aria-live="polite">Choose Live Draft or Mock Draft to open the offline draft room.</p>
-      </section>
+      <div class="workflow-tabs" role="tablist" aria-label="Draft workflows">
+        <button id="tab-cheat" type="button" role="tab" aria-selected="true" aria-controls="cheat-panel" tabindex="0">Cheat Sheet</button>
+        <button id="tab-mock" type="button" role="tab" aria-selected="false" aria-controls="mock-panel" tabindex="-1">Mock Draft</button>
+        <button id="tab-live" type="button" role="tab" aria-selected="false" aria-controls="live-panel" tabindex="-1">Live Draft</button>
+      </div>
 
-      <section id="draft-room" class="draft-room" hidden aria-label="Interactive draft room">
+      <section id="mock-panel" role="tabpanel" aria-labelledby="tab-mock" hidden>
+        <section id="draft-room" class="draft-room" aria-label="Interactive draft room">
+          <section class="panel draft-mode-panel" aria-labelledby="draft-mode-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Offline draft room</p>
+                <h2 id="draft-mode-title">Mock Draft</h2>
+              </div>
+              <p id="draft-mode-description">Mock managers use an ADP-led, roster-aware simulation—not a prediction of real people.</p>
+            </div>
+            <div class="draft-configuration" aria-live="polite">
+              <strong id="your-team">Your team: pick 1 (Team 1)</strong>
+              <span id="draft-config-summary">Choose a workflow, then start when your settings are ready.</span>
+            </div>
+            <div class="draft-actions">
+              <button id="draft-start" type="button">Start Draft</button>
+              <button id="mock-next" type="button">Play next AI pick</button>
+              <button id="mock-run" type="button">Auto-run to my pick</button>
+              <button id="draft-undo" type="button">Undo last pick</button>
+              <button id="draft-reset" type="button" class="secondary-button">Restart / unlock settings</button>
+            </div>
+            <p id="draft-status" class="draft-status" aria-live="polite">Choose Live Draft or Mock Draft to open the offline draft room.</p>
+          </section>
         <div class="draft-analyzer">
           <section class="panel analyzer-pane available-pane" aria-labelledby="available-title">
             <div class="analyzer-heading">
@@ -189,7 +186,10 @@
           <div id="manager-rosters" class="manager-rosters"></div>
         </section>
       </section>
+      </section>
+      <section id="live-panel" role="tabpanel" aria-labelledby="tab-live" hidden></section>
 
+      <section id="cheat-panel" role="tabpanel" aria-labelledby="tab-cheat">
       <section class="panel league-model-panel" aria-labelledby="league-model-title">
         <div class="section-heading">
           <div>
@@ -314,6 +314,7 @@
           <dl id="source-list" class="source-list"></dl>
           <p class="method-note">Availability is a deterministic estimate, not a forecast: Target ADP is modeled as a normal selection range. Spread starts at 1.75 picks, expands by 7.5% of Target ADP, and adds 35% of Yahoo/consensus disagreement (capped at 30 picks). Candidates below 8% estimated availability are hidden; next-pick survival is conditional on availability now. Window logic: market (0–3 early), preferred (4–8 early), controlled reach (9–12 early only for large value), never more than 12 early.</p>
         </aside>
+      </section>
       </section>
     </main>
 
