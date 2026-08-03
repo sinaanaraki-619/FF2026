@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A scoring-aware fantasy football draft dashboard with risk-adjusted targets.">
+    <title>Draft Compass | Fantasy Football Dashboard</title>
+    <link rel="stylesheet" href="assets/styles.css">
+    <script src="assets/data.js?v=20260803-bye-weeks" defer></script>
+    <script src="assets/projections.js?v=20260803-league-model" defer></script>
+    <script src="assets/app.js?v=20260804-workflow-tabs" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#dashboard">Skip to dashboard</a>
+    <header class="site-header">
+      <div class="header-content">
+        <div>
+          <p class="eyebrow">Fantasy Football 2026</p>
+          <h1>Draft Compass</h1>
+          <p class="subtitle">Risk-adjusted draft targets for every turn.</p>
+        </div>
+        <div class="refresh-card" aria-live="polite">
+          <span>Data last refreshed</span>
+          <strong id="data-refreshed">Loading...</strong>
+          <small id="dataset-note"></small>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboard" class="page-shell">
+      <noscript>
+        <p class="notice warning">Draft Compass requires JavaScript to calculate snake picks and draft targets.</p>
+      </noscript>
+
+      <section class="panel setup-panel" aria-labelledby="setup-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Draft setup</p>
+            <h2 id="setup-title">Build your board</h2>
+          </div>
+          <p id="setup-description">Adjust your format to recalculate every pick and target window.</p>
+        </div>
+        <form id="draft-form" class="filters league-filters" aria-describedby="setup-description">
+          <label>
+            <span>League format</span>
+            <select id="league-format" name="league-format">
+              <option value="customHalfPpr" selected>Custom half-PPR (0.5 reception)</option>
+              <option value="customPpr">Custom full PPR (1.0 reception)</option>
+            </select>
+          </label>
+          <label>
+            <span>Draft position</span>
+            <select id="slot" name="slot"></select>
+          </label>
+          <label>
+            <span>League size</span>
+            <select id="teams" name="teams">
+              <option value="10">10 teams</option>
+              <option value="12" selected>12 teams</option>
+              <option value="14">14 teams</option>
+            </select>
+          </label>
+          <label>
+            <span>W/R/T flex slots</span>
+            <select id="flex" name="flex">
+              <option value="1">1 flex</option>
+              <option value="2" selected>2 flexes</option>
+            </select>
+          </label>
+          <label>
+            <span>Mock AI risk / reach tolerance</span>
+            <input id="ai-risk" name="ai-risk" type="range" value="50" min="0" max="100">
+          </label>
+        </form>
+        <p id="settings-lock-status" class="settings-lock-status" aria-live="polite">Settings are editable until you start a Live or Mock Draft.</p>
+        <p id="provisional-message" class="notice warning" hidden></p>
+      </section>
+
+      <div class="workflow-tabs" role="tablist" aria-label="Draft workflows">
+        <button id="tab-cheat" type="button" role="tab" aria-selected="true" aria-controls="cheat-panel" tabindex="0">Cheat Sheet</button>
+        <button id="tab-mock" type="button" role="tab" aria-selected="false" aria-controls="mock-panel" tabindex="-1">Mock Draft</button>
+        <button id="tab-live" type="button" role="tab" aria-selected="false" aria-controls="live-panel" tabindex="-1">Live Draft</button>
+      </div>
+
+      <section id="mock-panel" role="tabpanel" aria-labelledby="tab-mock" hidden>
+        <section id="draft-room" class="draft-room" aria-label="Interactive draft room">
+          <section class="panel draft-mode-panel" aria-labelledby="draft-mode-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Offline draft room</p>
+                <h2 id="draft-mode-title">Mock Draft</h2>
+              </div>
+              <p id="draft-mode-description">Mock managers use an ADP-led, roster-aware simulation—not a prediction of real people.</p>
+            </div>
+            <div class="draft-configuration" aria-live="polite">
+              <strong id="your-team">Your team: pick 1 (Team 1)</strong>
+              <span id="draft-config-summary">Choose a workflow, then start when your settings are ready.</span>
+            </div>
+            <div class="draft-actions">
+              <button id="draft-start" type="button">Start Draft</button>
+              <button id="mock-next" type="button">Play next AI pick</button>
+              <button id="mock-run" type="button">Auto-run to my pick</button>
+              <button id="draft-undo" type="button">Undo last pick</button>
+              <button id="draft-reset" type="button" class="secondary-button">Restart / unlock settings</button>
+            </div>
+            <p id="draft-status" class="draft-status" aria-live="polite">Choose Live Draft or Mock Draft to open the offline draft room.</p>
+          </section>
+        <div class="draft-analyzer">
+          <section class="panel analyzer-pane available-pane" aria-labelledby="available-title">
+            <div class="analyzer-heading">
+              <div>
+                <p class="eyebrow">Player pool</p>
+                <h2 id="available-title">Available players</h2>
+              </div>
+              <p>Source-backed targets at the current pick.</p>
+            </div>
+            <div class="available-filters">
+              <label class="search-field">
+                <span class="sr-only">Search available players</span>
+                <input id="draft-player-search" type="search" placeholder="Search players">
+              </label>
+              <label>
+                <span class="sr-only">Filter by position</span>
+                <select id="draft-position-filter" name="draft-position-filter">
+                  <option value="all">All positions</option>
+                  <option value="QB">QB</option>
+                  <option value="RB">RB</option>
+                  <option value="WR">WR</option>
+                  <option value="TE">TE</option>
+                  <option value="K">K</option>
+                  <option value="DST">DEF</option>
+                </select>
+              </label>
+              <label class="check-filter">
+                <input id="draft-needs-only" type="checkbox">
+                <span>Needs first</span>
+              </label>
+            </div>
+            <div id="available-players" class="available-players" aria-live="polite"></div>
+          </section>
+
+          <section class="panel analyzer-pane draft-board-panel" aria-labelledby="draft-board-title">
+            <div class="analyzer-heading">
+              <div>
+                <p class="eyebrow">Draft board</p>
+                <h2 id="draft-board-title">Current pick</h2>
+              </div>
+              <p id="current-pick" class="current-pick" aria-live="polite"></p>
+            </div>
+            <p class="board-helper">Draft actions always apply to the active snake team. Your scheduled picks and recommendation are highlighted; Live Draft waits for manual entry at every pick.</p>
+            <div id="drafted-board" class="drafted-board" aria-live="polite"></div>
+          </section>
+
+          <aside class="analyzer-sidebar" aria-label="Draft analysis">
+            <section class="panel priority-panel" aria-labelledby="priority-title">
+              <div class="analyzer-heading">
+                <div>
+                  <p class="eyebrow">Recommendation</p>
+                  <h2 id="priority-title">Take or wait</h2>
+                </div>
+                <p id="conditional-survival-note">Model estimate uses ADP, current rosters, tiers, and intervening teams.</p>
+              </div>
+              <div id="priority-panel" class="priority-panel-content"></div>
+            </section>
+            <section class="panel roster-construction-panel" aria-labelledby="roster-construction-title">
+              <div class="analyzer-heading">
+                <div>
+                  <p class="eyebrow">Your construction</p>
+                  <h2 id="roster-construction-title">Starter progress</h2>
+                </div>
+                <p>Required starters and selected flex slots.</p>
+              </div>
+              <div id="roster-construction" class="roster-construction"></div>
+              <div id="user-roster" class="user-roster"></div>
+            </section>
+          </aside>
+        </div>
+        <section class="panel rosters-panel" aria-labelledby="rosters-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Rosters</p>
+              <h2 id="rosters-title">League roster board</h2>
+            </div>
+            <p>Roster counts update after every pick; K/DEF are tracked but do not drive flex scarcity.</p>
+          </div>
+          <div id="manager-rosters" class="manager-rosters"></div>
+        </section>
+      </section>
+      </section>
+      <section id="live-panel" role="tabpanel" aria-labelledby="tab-live" hidden></section>
+
+      <section id="cheat-panel" role="tabpanel" aria-labelledby="tab-cheat">
+      <section class="panel league-model-panel" aria-labelledby="league-model-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">League-specific game theory</p>
+            <h2 id="league-model-title">Roster scarcity model</h2>
+          </div>
+          <p>Replacement levels reflect 12 teams, required starters, and two flex starters. Projection VORP appears only where the supplied offensive CSV maps to the board.</p>
+        </div>
+        <div id="league-model" class="league-model" aria-live="polite">Loading league model...</div>
+      </section>
+
+      <section class="panel draftsharks-panel" aria-labelledby="draftsharks-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ADP freshness and source status</p>
+            <h2 id="draftsharks-title">DraftSharks consensus ADP</h2>
+          </div>
+          <p>A validated matching snapshot replaces consensus market ADP only; Yahoo remains primary and Guru rankings stay unchanged.</p>
+        </div>
+        <dl class="freshness-list">
+          <div>
+            <dt>Local snapshot refresh</dt>
+            <dd id="draftsharks-local-refresh">Loading...</dd>
+          </div>
+          <div>
+            <dt>Selected source and filter</dt>
+            <dd><a id="draftsharks-source" href="https://www.draftsharks.com/adp/ppr/consensus/12" target="_blank" rel="noopener">Open DraftSharks source</a></dd>
+          </div>
+          <div>
+            <dt>Source page last updated</dt>
+            <dd id="draftsharks-source-updated">Loading...</dd>
+          </div>
+        </dl>
+        <p id="draftsharks-status" class="draftsharks-status" aria-live="polite">Loading DraftSharks snapshot metadata...</p>
+        <p class="method-note">A guarded GitHub Actions job attempts all six PPR/half-PPR and 10/12/14 filters daily at 8:00 AM America/Los_Angeles. It stores only validated public tables and preserves existing snapshots when DraftSharks is dynamic, blocked, or does not expose a stable table. Source page timestamps appear only when the public response provides a labeled, timezone-qualified value that the parser validates.</p>
+      </section>
+
+      <section class="summary-grid" aria-label="Draft summary">
+        <article class="metric-card">
+          <span>Draft profile</span>
+          <strong id="draft-profile">12 teams · Pick 1</strong>
+          <small id="format-profile">PPR · 1 flex</small>
+        </article>
+        <article class="metric-card">
+          <span>Next selection</span>
+          <strong id="next-pick">1.01</strong>
+          <small id="next-overall">Overall pick 1</small>
+        </article>
+        <article class="metric-card">
+          <span>Risk guardrail</span>
+          <strong>12 picks early max</strong>
+          <small>Controlled reaches require a large value case.</small>
+        </article>
+      </section>
+
+      <section class="panel picks-panel" aria-labelledby="picks-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Snake draft map</p>
+            <h2 id="picks-title">Your first 15 picks</h2>
+          </div>
+          <p>Overall draft selections calculated from your slot and league size.</p>
+        </div>
+        <ol id="pick-map" class="pick-map"></ol>
+      </section>
+
+      <section class="panel queue-panel" aria-labelledby="queue-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Round-by-round queue</p>
+            <h2 id="queue-title">Targets with 3–4 alternatives</h2>
+          </div>
+          <p>Recommendations pair Yahoo-primary market ADP with Guru ranks, estimated availability, and league-specific scarcity.</p>
+        </div>
+        <div class="legend" aria-label="Recommendation labels">
+          <span class="tag major-steal">Major steal</span>
+          <span class="tag high-priority">High priority</span>
+          <span class="tag fair">Fair</span>
+          <span class="tag avoid">Avoid</span>
+        </div>
+        <div id="draft-queue" class="draft-queue" aria-live="polite"></div>
+      </section>
+
+      <section class="lower-grid">
+        <section class="panel rankings-panel" aria-labelledby="rankings-title">
+          <div class="section-heading rankings-heading">
+            <div>
+              <p class="eyebrow">Rankings board</p>
+              <h2 id="rankings-title">Scoring-aware player values</h2>
+            </div>
+            <label class="search-field">
+              <span class="sr-only">Search ranked players</span>
+              <input id="player-search" type="search" placeholder="Search players or positions">
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <caption class="sr-only">Ranked players with Yahoo, secondary consensus, and Yahoo-primary target ADPs</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Rank</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Pos</th>
+                  <th scope="col">Yahoo ADP</th>
+                  <th scope="col">Consensus ADP</th>
+                  <th scope="col">Target ADP</th>
+                  <th scope="col">Availability</th>
+                  <th scope="col">Projection / VORP</th>
+                  <th scope="col">Positional tier</th>
+                  <th scope="col">Target window</th>
+                </tr>
+              </thead>
+              <tbody id="rankings-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="panel sources-panel" aria-labelledby="sources-title">
+          <p class="eyebrow">Market inputs</p>
+          <h2 id="sources-title">ADP sources</h2>
+          <p class="source-copy">Yahoo is weighted as the primary source. The other sources are retained so updates can identify market disagreement.</p>
+          <dl id="source-list" class="source-list"></dl>
+          <p class="method-note">Availability is a deterministic estimate, not a forecast: Target ADP is modeled as a normal selection range. Spread starts at 1.75 picks, expands by 7.5% of Target ADP, and adds 35% of Yahoo/consensus disagreement (capped at 30 picks). Candidates below 8% estimated availability are hidden; next-pick survival is conditional on availability now. Window logic: market (0–3 early), preferred (4–8 early), controlled reach (9–12 early only for large value), never more than 12 early.</p>
+        </aside>
+      </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Source-backed local data, not live advice. Refresh rankings and ADPs before your draft.</p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Draft Compass ranking data",
+  "description": "Schema for the source-backed local data model consumed by assets/data.js.",
+  "type": "object",
+  "required": ["meta", "sources", "rankings"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["dataLastRefreshed", "isSampleData", "leagueSeason"],
+      "properties": {
+        "dataLastRefreshed": { "type": "string", "format": "date-time" },
+        "isSampleData": { "type": "boolean" },
+        "leagueSeason": { "type": "integer" }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "role", "refreshedAt", "weight"],
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "refreshedAt": { "type": "string", "format": "date-time" },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "rankings": {
+      "type": "object",
+      "required": ["ppr", "halfPpr"],
+      "properties": {
+        "ppr": { "$ref": "#/$defs/board" },
+        "halfPpr": { "$ref": "#/$defs/board" }
+      }
+    }
+  },
+  "$defs": {
+    "board": {
+      "type": "object",
+      "required": ["label", "provisional", "items"],
+      "properties": {
+        "label": { "type": "string" },
+        "provisional": { "type": "boolean" },
+        "note": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/player" }
+        }
+      }
+    },
+    "player": {
+      "type": "object",
+      "required": ["id", "name", "position", "team", "byeWeek", "rank", "projectedPoints", "tier", "adp"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "position": { "enum": ["QB", "RB", "WR", "TE", "K", "DST"] },
+        "team": { "type": "string" },
+        "byeWeek": { "type": ["integer", "null"], "minimum": 1, "maximum": 18 },
+        "rank": { "type": "integer", "minimum": 1 },
+        "projectedPoints": { "type": ["number", "null"] },
+        "tier": { "type": "integer", "minimum": 1 },
+        "adp": {
+          "type": "object",
+          "required": ["yahoo", "sleeper", "rtSports", "average", "realTime"],
+          "properties": {
+            "yahoo": { "type": ["number", "null"], "minimum": 1 },
+            "sleeper": { "type": ["number", "null"], "minimum": 1 },
+            "rtSports": { "type": ["number", "null"], "minimum": 1 },
+            "average": { "type": ["number", "null"], "minimum": 1 },
+            "realTime": { "type": ["number", "null"], "minimum": 1 }
+          }
+        }
+      }
+    }
+  }
+}
