@@ -95,12 +95,17 @@ foreach ($guruPlayer in $guru) {
   if (-not $recordIds.Add($key)) {
     throw "Duplicate generated player id: $key"
   }
+  $byeWeek = if ([string]::IsNullOrWhiteSpace($guruPlayer.Bye)) { $null } else { [int](Convert-SourceNumber $guruPlayer.Bye) }
+  if ($null -ne $byeWeek -and ($byeWeek -lt 1 -or $byeWeek -gt 18)) {
+    throw "Invalid Guru bye week for $($guruPlayer.Player): $($guruPlayer.Bye)"
+  }
 
   $records += [pscustomobject]@{
     id = $key
     name = $guruPlayer.Player
     position = $adp.Position
     team = $guruPlayer.Team
+    byeWeek = $byeWeek
     rank = [int]$guruPlayer.Rank
     tier = [math]::Ceiling([int]$guruPlayer.Rank / 12)
     adp = [ordered]@{
@@ -119,7 +124,7 @@ if ($records.Count -ne 198 -or (($excludedGuru | Sort-Object) -join "|") -ne $ex
 }
 
 $playerLines = $records | ForEach-Object {
-  (ConvertTo-Json -InputObject @($_.id, $_.name, $_.position, $_.team, $_.adp.yahoo, $_.adp.sleeper, $_.adp.rtSports, $_.adp.average, $_.adp.realTime) -Compress) -replace "\\u0027", "'"
+  (ConvertTo-Json -InputObject @($_.id, $_.name, $_.position, $_.team, $_.byeWeek, $_.adp.yahoo, $_.adp.sleeper, $_.adp.rtSports, $_.adp.average, $_.adp.realTime) -Compress) -replace "\\u0027", "'"
 }
 $rankLines = $records | ForEach-Object {
   ConvertTo-Json -InputObject @($_.id, $_.rank, $_.tier) -Compress
@@ -142,8 +147,8 @@ $content = @"
   // No half-PPR export was supplied; retain a distinct provisional board.
   const halfPprOrder = pprOrder.map((entry) => [...entry]);
 
-  const playerMap = Object.fromEntries(players.map(([id, name, position, team, yahoo, sleeper, rtSports, average, realTime]) => [
-    id, { id, name, position, team, adp: { yahoo, sleeper, rtSports, average, realTime } }
+  const playerMap = Object.fromEntries(players.map(([id, name, position, team, byeWeek, yahoo, sleeper, rtSports, average, realTime]) => [
+    id, { id, name, position, team, byeWeek, adp: { yahoo, sleeper, rtSports, average, realTime } }
   ]));
 
   const toRankings = (entries) => entries.map(([id, rank, tier]) => ({

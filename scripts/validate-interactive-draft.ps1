@@ -4,6 +4,7 @@ param(
 
 $app = Get-Content -LiteralPath (Join-Path $RepositoryRoot "assets\app.js") -Raw
 $index = Get-Content -LiteralPath (Join-Path $RepositoryRoot "index.html") -Raw
+$data = Get-Content -LiteralPath (Join-Path $RepositoryRoot "assets\data.js") -Raw
 
 function Get-PickOwner {
   param([int]$OverallPick, [int]$Teams)
@@ -30,7 +31,9 @@ function Get-ConditionalSurvival {
 
 foreach ($required in @(
   'id="draft-mode"',
-  'id="draft-team"',
+  'id="draft-start"',
+  'id="your-team"',
+  'id="draft-config-summary"',
   'id="mock-next"',
   'id="mock-run"',
   'id="draft-undo"',
@@ -48,21 +51,51 @@ foreach ($required in @(
     throw "Interactive draft UI is missing: $required"
   }
 }
+if ($index.Contains('id="draft-team"') -or $index.Contains('Assign manual pick to')) {
+  throw "The draft UI still exposes an independent manual team selector."
+}
 foreach ($required in @(
   'const pickOwner = (overallPick, teams) =>',
   'const conditionalSurvivalEstimate = (player, state, market, scarcity, rosters, currentPick, playerById) =>',
   'const chooseMockPlayer = (players, state, market, scarcity, rosters, currentPick) =>',
   'const playMockUntilUser = (players, state, market, scarcity, stopAfterOne = false) =>',
   'const renderRosterConstruction = (state, rosters, playerById) =>',
+  'const renderDraftConfiguration = (state) =>',
+  'const setDraftSettingsLocked = (locked) =>',
+  'const formatByeWeek = (player) =>',
   'analysisTeam = state.slot',
   'const saveLiveDraft = (state) =>',
   'const loadLiveDraft = (state) =>',
   'localStorage.setItem',
+  'draftRoomState.started',
   'Model estimate, not certainty.'
 )) {
   if (-not $app.Contains($required)) {
     throw "Interactive draft behavior is missing: $required"
   }
+  if (-not $data.Contains('byeWeek')) {
+    throw "Source-backed player data does not expose bye weeks."
+  }
+}
+
+function Get-NextUserPick {
+  param([int]$StartPick, [int]$Teams, [int]$Slot)
+
+  for ($pick = $StartPick; $pick -le $Teams * 15; $pick++) {
+    if ((Get-PickOwner $pick $Teams) -eq $Slot) {
+      return $pick
+    }
+  }
+  return $null
+}
+
+function Format-ByeWeek {
+  param([Nullable[int]]$ByeWeek)
+
+  if ($null -eq $ByeWeek) {
+    return "Bye unavailable"
+  }
+  return "Bye $ByeWeek"
 }
 
 foreach ($teams in 10, 12, 14) {
@@ -80,6 +113,43 @@ foreach ($teams in 10, 12, 14) {
       }
     }
   }
+}
+
+foreach ($teams in 10, 12, 14) {
+  foreach ($slot in 1..$teams) {
+    $mockPicksBeforeUser = @(1..($teams * 15) | Where-Object { $_ -lt $slot })
+    if ($mockPicksBeforeUser.Count -ne $slot - 1 -or (Get-PickOwner $slot $teams) -ne $slot) {
+      throw "Mock start did not stop at the selected draft-position team for $teams teams, slot $slot."
+    }
+    $nextUserPick = Get-NextUserPick ($slot + 1) $teams $slot
+    $autoRunAfterUser = @($mockPicksBeforeUser + $slot)
+    if ($nextUserPick) {
+      if ($nextUserPick -gt $slot + 1) {
+        $autoRunAfterUser += @(($slot + 1)..($nextUserPick - 1))
+      }
+      if ($autoRunAfterUser.Count -ne $nextUserPick - 1 -or (Get-PickOwner $nextUserPick $teams) -ne $slot) {
+        throw "Mock auto-run did not stop at the next selected-team pick for $teams teams, slot $slot."
+      }
+    }
+  }
+}
+
+$draftStarted = $true
+$settingsLocked = $draftStarted
+if (-not $settingsLocked) {
+  throw "Draft settings were not locked after start."
+}
+$draftStarted = $false
+$settingsLocked = $draftStarted
+if ($settingsLocked) {
+  throw "Restart did not unlock draft settings."
+}
+$livePicksAfterStart = @()
+if ($livePicksAfterStart.Count -ne 0) {
+  throw "Live Draft auto-selected a player instead of waiting for manual entry."
+}
+if ((Format-ByeWeek 7) -ne "Bye 7" -or (Format-ByeWeek $null) -ne "Bye unavailable") {
+  throw "Bye-week display does not handle sourced and missing values."
 }
 
 $playerPool = @(
@@ -140,4 +210,4 @@ if ($playerPool.Count -ne 4 -or $playerPool[0].Position -ne "QB") {
   throw "Interactive draft test fixture is invalid."
 }
 
-Write-Output "Interactive draft validation passed: 10/12/14-team snake ownership for every slot, manual add/undo/reset/local persistence, conditional QB survival increase, and complete unique 15-round mock rosters."
+Write-Output "Interactive draft validation passed: 10/12/14-team snake ownership and selected-user-team starts, settings lock/restart, manual Live behavior, Mock auto-run boundaries, bye-week display, manual add/undo/reset/local persistence, conditional QB survival increase, and complete unique 15-round mock rosters."

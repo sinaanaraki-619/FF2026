@@ -55,7 +55,7 @@ Assert-Range $adp100At105 .2 .5 "ADP 100 availability at pick 105"
 
 $wanDale = [regex]::Match(
   $data,
-  '\["wandalerobinson","Wan''Dale Robinson","WR","TEN",(?<yahoo>[\d.]+),(?<sleeper>[\d.]+),(?<rtSports>[\d.]+),(?<average>[\d.]+),(?<realTime>[\d.]+)\]'
+  '\["wandalerobinson","Wan''Dale Robinson","WR","TEN",(?<byeWeek>\d+|null),(?<yahoo>[\d.]+),(?<sleeper>[\d.]+),(?<rtSports>[\d.]+),(?<average>[\d.]+),(?<realTime>[\d.]+)\]'
 )
 if (-not $wanDale.Success) {
   throw "Wan'Dale Robinson source row is missing."

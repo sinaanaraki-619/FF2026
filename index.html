@@ -6,9 +6,9 @@
     <meta name="description" content="A scoring-aware fantasy football draft dashboard with risk-adjusted targets.">
     <title>Draft Compass | Fantasy Football Dashboard</title>
     <link rel="stylesheet" href="assets/styles.css">
-    <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
+    <script src="assets/data.js?v=20260803-bye-weeks" defer></script>
     <script src="assets/projections.js?v=20260803-league-model" defer></script>
-    <script src="assets/app.js?v=20260803-draft-analyzer" defer></script>
+    <script src="assets/app.js?v=20260803-draft-flow" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -89,10 +89,6 @@
             </select>
           </label>
           <label>
-            <span>Assign manual pick to</span>
-            <select id="draft-team" name="draft-team"></select>
-          </label>
-          <label>
             <span>Mock seed</span>
             <input id="mock-seed" name="mock-seed" type="number" value="2026" min="1" step="1">
           </label>
@@ -101,12 +97,16 @@
             <input id="ai-risk" name="ai-risk" type="range" value="50" min="0" max="100">
           </label>
         </div>
+        <div class="draft-configuration" aria-live="polite">
+          <strong id="your-team">Your team: pick 1 (Team 1)</strong>
+          <span id="draft-config-summary">Choose a Live or Mock mode, then start when your settings are ready.</span>
+        </div>
         <div class="draft-actions">
+          <button id="draft-start" type="button">Start Draft</button>
           <button id="mock-next" type="button">Play next AI pick</button>
           <button id="mock-run" type="button">Auto-run to my pick</button>
           <button id="draft-undo" type="button">Undo last pick</button>
-          <button id="mock-new" type="button">New mock</button>
-          <button id="draft-reset" type="button" class="secondary-button">Reset draft</button>
+          <button id="draft-reset" type="button" class="secondary-button">Restart / unlock settings</button>
         </div>
         <p id="draft-status" class="draft-status" aria-live="polite">Choose Live Draft or Mock Draft to open the offline draft room.</p>
       </section>
@@ -154,7 +154,7 @@
               </div>
               <p id="current-pick" class="current-pick" aria-live="polite"></p>
             </div>
-            <p class="board-helper">Draft actions apply to the current snake pick. Live Draft may use the team override above to correct an offline board.</p>
+            <p class="board-helper">Draft actions always apply to the active snake team. Your scheduled picks and recommendation are highlighted; Live Draft waits for manual entry at every pick.</p>
             <ol id="drafted-board" class="drafted-board"></ol>
           </section>
 

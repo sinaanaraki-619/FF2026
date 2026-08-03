@@ -8,7 +8,7 @@ if ([string]::IsNullOrWhiteSpace($DataPath)) {
 
 $source = Get-Content -LiteralPath $DataPath -Raw
 $appSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\assets\app.js") -Raw
-$playerPattern = '^\s*\["(?<id>[^"]+)","(?<name>[^"]+)","(?<position>[^"]+)","(?<team>[^"]*)",(?<yahoo>[\d.]+|null),(?<sleeper>[\d.]+|null),(?<rtSports>[\d.]+|null),(?<average>[\d.]+|null),(?<realTime>[\d.]+|null)\],?\r?$'
+$playerPattern = '^\s*\["(?<id>[^"]+)","(?<name>[^"]+)","(?<position>[^"]+)","(?<team>[^"]*)",(?<byeWeek>\d+|null),(?<yahoo>[\d.]+|null),(?<sleeper>[\d.]+|null),(?<rtSports>[\d.]+|null),(?<average>[\d.]+|null),(?<realTime>[\d.]+|null)\],?\r?$'
 $rankPattern = '^\s*\["(?<id>[^"]+)",(?<rank>\d+),(?<tier>\d+)\],?\r?$'
 $players = @{}
 $playerNames = [System.Collections.Generic.HashSet[string]]::new()
@@ -31,6 +31,7 @@ foreach ($match in [regex]::Matches($source, $playerPattern, [System.Text.Regula
     Name = $match.Groups["name"].Value
     Position = $match.Groups["position"].Value
     Team = $match.Groups["team"].Value
+    ByeWeek = Convert-NullableNumber $match.Groups["byeWeek"].Value
     Yahoo = Convert-NullableNumber $match.Groups["yahoo"].Value
     Sleeper = Convert-NullableNumber $match.Groups["sleeper"].Value
     RtSports = Convert-NullableNumber $match.Groups["rtSports"].Value
@@ -76,6 +77,7 @@ function Assert-Player {
     [string]$Name,
     [string]$Position,
     [string]$Team,
+    [object]$ByeWeek,
     [int]$Rank,
     [object]$Yahoo,
     [object]$Sleeper,
@@ -91,6 +93,7 @@ function Assert-Player {
   Assert-Value $player.Name $Name "$Name name"
   Assert-Value $player.Position $Position "$Name position"
   Assert-Value $player.Team $Team "$Name team"
+  Assert-Value $player.ByeWeek $ByeWeek "$Name bye week"
   Assert-Value $ranks[$Id] $Rank "$Name Guru rank"
   Assert-Value $player.Yahoo $Yahoo "$Name Yahoo ADP"
   Assert-Value $player.Sleeper $Sleeper "$Name Sleeper ADP"
@@ -114,17 +117,23 @@ if (-not $source.Contains("const halfPprOrder = pprOrder.map((entry) => [...entr
 if (-not $appSource.Contains("const consensusAdp = (player, market) => market.values.get(normalizePlayerName(player.name)) ?? player.adp.average;")) {
   throw "The dashboard no longer retains supplied AVG as the safe per-player consensus fallback."
 }
+if (-not $appSource.Contains('const formatByeWeek = (player) => Number.isInteger(player.byeWeek) ? `Bye ${player.byeWeek}` : "Bye unavailable";')) {
+  throw "The dashboard does not represent unavailable bye weeks explicitly."
+}
+if (($players.Values | Where-Object { $null -ne $_.ByeWeek -and ($_.ByeWeek -lt 1 -or $_.ByeWeek -gt 18) }).Count -ne 0) {
+  throw "A generated player has an invalid bye week."
+}
 
-Assert-Player "jamarrchase" "Ja'Marr Chase" "WR" "CIN" 1 3 3 3 3 3
-Assert-Player "jamescook" "James Cook III" "RB" "BUF" 12 10 9 10 9.7 9
-Assert-Player "tylerwarren" "Tyler Warren" "TE" "IND" 52 49 51 57 52.3 48
+Assert-Player "jamarrchase" "Ja'Marr Chase" "WR" "CIN" 6 1 3 3 3 3 3
+Assert-Player "jamescook" "James Cook III" "RB" "BUF" 7 12 10 9 10 9.7 9
+Assert-Player "tylerwarren" "Tyler Warren" "TE" "IND" 13 52 49 51 57 52.3 48
 $eddyName = "Eddy Pi" + [char]0x00F1 + "eiro"
-Assert-Player "eddypineiro" $eddyName "K" "SF" 189 219 $null 237 228 170
-Assert-Player "kennethwalker" "Kenneth Walker III" "RB" "KC" 15 21 22 18 20.3 17
+Assert-Player "eddypineiro" $eddyName "K" "SF" 8 189 219 $null 237 228 170
+Assert-Player "kennethwalker" "Kenneth Walker III" "RB" "KC" 5 15 21 22 18 20.3 17
 
 $cook = $players["jamescook"]
 $walker = $players["kennethwalker"]
 Assert-Value ($cook.Yahoo * 0.55 + $cook.Average * 0.45) 9.865 "James Cook target ADP"
 Assert-Value ($walker.Yahoo * 0.55 + $walker.Average * 0.45) 20.685 "Kenneth Walker target ADP"
 
-Write-Output "Source integrity validation passed: 198 unique records/ranks; early, mid, and late source rows match; Cook AVG 9.7 and Walker AVG 20.3."
+Write-Output "Source integrity validation passed: 198 unique records/ranks with valid source bye weeks; early, mid, and late source rows match; Cook AVG 9.7 and Walker AVG 20.3."

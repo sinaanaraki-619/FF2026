@@ -303,13 +303,34 @@ button.secondary-button {
 .draft-controls,
 .draft-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: .75rem;
 }
 
 .draft-actions {
   grid-template-columns: repeat(5, max-content);
   margin-top: 1rem;
+}
+
+.draft-configuration {
+  display: flex;
+  gap: .65rem;
+  align-items: baseline;
+  margin-top: .85rem;
+  padding: .65rem .8rem;
+  border: 1px solid rgb(103 232 196 / 35%);
+  border-radius: 8px;
+  background: rgb(103 232 196 / 7%);
+}
+
+.draft-configuration strong {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.draft-configuration span {
+  color: var(--muted);
+  font-size: .78rem;
 }
 
 .draft-status {
@@ -560,6 +581,15 @@ button.secondary-button {
   font-size: .76rem;
 }
 
+.bye-insight {
+  padding-top: .55rem;
+  border-top: 1px solid rgb(45 64 89 / 55%);
+}
+
+.bye-insight strong {
+  color: var(--ink);
+}
+
 .roster-slots {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -614,6 +644,11 @@ button.secondary-button {
 
 .manager-rosters article.user-manager {
   border-color: var(--accent);
+}
+
+.drafted-board li.your-pick {
+  border-color: var(--accent);
+  background: rgb(103 232 196 / 10%);
 }
 
 .roster-list {
@@ -958,6 +993,11 @@ td:first-child {
 
   .draft-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .draft-configuration {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

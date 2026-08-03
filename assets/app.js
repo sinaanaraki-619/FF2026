@@ -29,15 +29,16 @@
     draftSharksSourceUpdated: document.querySelector("#draftsharks-source-updated"),
     draftSharksStatus: document.querySelector("#draftsharks-status"),
     draftMode: document.querySelector("#draft-mode"),
-    draftTeam: document.querySelector("#draft-team"),
     mockSeed: document.querySelector("#mock-seed"),
     aiRisk: document.querySelector("#ai-risk"),
+    draftStart: document.querySelector("#draft-start"),
     mockNext: document.querySelector("#mock-next"),
     mockRun: document.querySelector("#mock-run"),
     draftUndo: document.querySelector("#draft-undo"),
-    mockNew: document.querySelector("#mock-new"),
     draftReset: document.querySelector("#draft-reset"),
     draftStatus: document.querySelector("#draft-status"),
+    yourTeam: document.querySelector("#your-team"),
+    draftConfigSummary: document.querySelector("#draft-config-summary"),
     draftRoom: document.querySelector("#draft-room"),
     currentPick: document.querySelector("#current-pick"),
     draftPlayerSearch: document.querySelector("#draft-player-search"),
@@ -76,7 +77,15 @@
     ["WR", "RB", "TE"], ["RB", "WR", "QB"], ["WR", "RB", "TE"], ["RB", "WR", "QB"],
     ["RB", "WR", "TE"]
   ];
-  const draftRoomState = { picks: [], mode: "cheat", seed: 2026, risk: 50, storageMessage: "" };
+  const draftRoomState = {
+    picks: [],
+    mode: "cheat",
+    seed: 2026,
+    risk: 50,
+    started: false,
+    storageMessage: "",
+    statusMessage: ""
+  };
 
   const formatDate = (date) => new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium", timeStyle: "short"
@@ -96,6 +105,8 @@
   const isAdp = (value) => typeof value === "number" && Number.isFinite(value);
 
   const formatAdp = (value) => isAdp(value) ? value.toFixed(1) : "N/A";
+
+  const formatByeWeek = (player) => Number.isInteger(player.byeWeek) ? `Bye ${player.byeWeek}` : "Bye unavailable";
 
   const normalizePlayerName = (name) => name.normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -524,7 +535,10 @@
       return true;
     }
     try {
-      localStorage.setItem(draftStorageKey(state), JSON.stringify({ picks: draftRoomState.picks }));
+      localStorage.setItem(draftStorageKey(state), JSON.stringify({
+        picks: draftRoomState.picks,
+        started: draftRoomState.started
+      }));
       draftRoomState.storageMessage = "";
       return true;
     } catch (error) {
@@ -545,11 +559,13 @@
           && pick.team <= state.teams)
         && new Set(picks.map((pick) => pick.playerId)).size === picks.length;
       draftRoomState.picks = validPicks ? picks : [];
+      draftRoomState.started = validPicks && (saved.started === true || picks.length > 0);
       draftRoomState.storageMessage = validPicks || picks == null
         ? ""
         : "Saved Live Draft data was invalid for these settings, so a new board was started.";
     } catch (error) {
       draftRoomState.picks = [];
+      draftRoomState.started = false;
       draftRoomState.storageMessage = "Saved Live Draft data could not be restored, so a new board was started.";
     }
   };
@@ -570,7 +586,7 @@
 
   const addDraftPick = (playerId, state, assignedTeam) => {
     const currentPick = getCurrentOverallPick();
-    if (currentPick > state.teams * 15 || draftRoomState.picks.some((pick) => pick.playerId === playerId)) {
+    if (!draftRoomState.started || currentPick > state.teams * 15 || draftRoomState.picks.some((pick) => pick.playerId === playerId)) {
       return false;
     }
     draftRoomState.picks.push({ playerId, team: assignedTeam || pickOwner(currentPick, state.teams) });
@@ -621,25 +637,14 @@
     }
   };
 
-  const renderDraftTeamOptions = (state) => {
-    const current = getCurrentOverallPick() <= state.teams * 15 ? pickOwner(getCurrentOverallPick(), state.teams) : state.slot;
-    elements.draftTeam.replaceChildren(...[
-      { value: "auto", label: `Snake owner (Team ${current})` },
-      ...Array.from({ length: state.teams }, (_, index) => ({ value: String(index + 1), label: `Team ${index + 1}` }))
-    ].map((entry) => {
-      const option = document.createElement("option");
-      option.value = entry.value;
-      option.textContent = entry.label;
-      return option;
-    }));
-  };
-
   const renderRosters = (players, state) => {
     const playerById = new Map(players.map((player) => [player.id, player]));
     const rosters = createRosters(state.teams, draftRoomState.picks);
     const renderRoster = (roster) => {
       const grouped = ["QB", "RB", "WR", "TE", "K", "DST"].map((position) => {
-        const names = roster.players.map((id) => playerById.get(id)).filter((player) => player && player.position === position).map((player) => player.name);
+        const names = roster.players.map((id) => playerById.get(id))
+          .filter((player) => player && player.position === position)
+          .map((player) => `${player.name} (${formatByeWeek(player)})`);
         return names.length ? `<li><strong>${position}</strong>: ${names.join(", ")}</li>` : "";
       }).join("");
       return `<ul class="roster-list">${grouped || "<li>No players drafted</li>"}</ul>`;
@@ -650,6 +655,24 @@
       `<article class="${roster.team === state.slot ? "user-manager" : ""}"><h3>Team ${roster.team}${roster.team === state.slot ? " (you)" : ""}</h3>${renderRoster(roster)}</article>`
     ).join("");
     return rosters;
+  };
+
+  const byeWeekInsight = (roster, playerById) => {
+    const weeks = new Map();
+    let unavailable = 0;
+    roster.players.forEach((id) => {
+      const player = playerById.get(id);
+      if (!player || !Number.isInteger(player.byeWeek)) {
+        unavailable += 1;
+        return;
+      }
+      weeks.set(player.byeWeek, (weeks.get(player.byeWeek) || 0) + 1);
+    });
+    const concentration = [...weeks.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([week, count]) => `Week ${week}: ${count}`)
+      .join(" · ");
+    return `${concentration || "No sourced bye weeks on roster yet."}${unavailable ? ` · ${unavailable} bye unavailable` : ""} Informational only; no hard veto.`;
   };
 
   const renderRosterConstruction = (state, rosters, playerById) => {
@@ -667,7 +690,8 @@
     roles.push(`<div class="roster-slot ${flexFilled >= state.flex ? "filled" : flexFilled ? "in-progress" : "open"}"><span>FLEX</span><strong>${flexFilled}/${state.flex}</strong></div>`);
     elements.rosterConstruction.innerHTML = `
       <div class="roster-slots">${roles.join("")}</div>
-      <p>${coreFilled + flexFilled}/${Object.values(required).reduce((sum, value) => sum + value, 0) + state.flex} starter/flex spots filled. K and DEF stay outside the scarcity model.</p>`;
+      <p>${coreFilled + flexFilled}/${Object.values(required).reduce((sum, value) => sum + value, 0) + state.flex} starter/flex spots filled. K and DEF stay outside the scarcity model.</p>
+      <p class="bye-insight"><strong>Bye-week roster view:</strong> ${byeWeekInsight(rosters[state.slot - 1], playerById)}</p>`;
   };
 
   const renderPriorityPanel = (players, state, market, scarcity, rosters, currentPick) => {
@@ -685,7 +709,7 @@
     elements.priorityPanel.innerHTML = `
       <article class="primary-recommendation">
         <span class="recommendation-action">${gameTheory.action}</span>
-        <strong>${player.name} <small>${player.position} · Tier ${tier}</small></strong>
+        <strong>${player.name} <small>${player.position} · Tier ${tier} · ${formatByeWeek(player)}</small></strong>
         <p>${gameTheory.need}; ${gameTheory.drop.label}. ${conditional.detail}</p>
         <dl class="recommendation-metrics">
           <div><dt>Available now</dt><dd>${formatProbability(availability)}</dd></div>
@@ -698,21 +722,45 @@
         <h3>Alternatives</h3>
         ${candidates.slice(1).map((candidate, index) => `<article class="priority-card">
           <span>${candidate.gameTheory.action} · Tier ${candidate.tier}</span>
-          <strong>${index + 1}. ${candidate.player.name} <small>${candidate.player.position}</small></strong>
+          <strong>${index + 1}. ${candidate.player.name} <small>${candidate.player.position} · ${formatByeWeek(candidate.player)}</small></strong>
           <span>${candidate.gameTheory.need}; ${candidate.gameTheory.drop.label}; ${formatProbability(candidate.conditional.probability)} next-pick survival.</span>
         </article>`).join("")}
       </div>`;
     elements.conditionalSurvivalNote.textContent = `${primary.player.name}: ${primary.conditional.detail} Baseline ADP survival ${formatProbability(primary.conditional.baseline)}; adjusted ${formatProbability(primary.conditional.probability)}. Model estimate, not certainty.`;
   };
 
+  const renderDraftConfiguration = (state) => {
+    const picks = snakePicks(state.teams, state.slot, 15);
+    elements.yourTeam.textContent = `Your team: pick ${state.slot} (Team ${state.slot})`;
+    elements.draftConfigSummary.textContent = `${state.formatLabel} · ${state.teams} teams · ${state.flex} flex · scheduled picks ${picks.slice(0, 3).map((pick) => formatPick(pick, state.teams)).join(", ")}${picks.length > 3 ? "…" : ""}`;
+  };
+
+  const setDraftSettingsLocked = (locked) => {
+    [
+      elements.leagueFormat,
+      elements.slot,
+      elements.teams,
+      elements.flex,
+      elements.draftMode,
+      elements.mockSeed,
+      elements.aiRisk
+    ].forEach((control) => {
+      control.disabled = locked;
+    });
+  };
+
   const renderDraftRoom = (players, state, market, scarcity) => {
     const mode = elements.draftMode.value;
     draftRoomState.mode = mode;
     elements.draftRoom.hidden = mode === "cheat";
-    elements.mockNext.disabled = mode !== "mock";
-    elements.mockRun.disabled = mode !== "mock";
-    elements.mockNew.disabled = mode !== "mock";
-    elements.draftUndo.disabled = mode === "cheat" || draftRoomState.picks.length === 0;
+    renderDraftConfiguration(state);
+    setDraftSettingsLocked(mode !== "cheat" && draftRoomState.started);
+    elements.draftStart.hidden = mode === "cheat";
+    elements.draftStart.disabled = mode === "cheat" || draftRoomState.started;
+    elements.draftStart.textContent = mode === "mock" ? "Start Mock Draft" : "Start Live Draft";
+    elements.mockNext.disabled = mode !== "mock" || !draftRoomState.started;
+    elements.mockRun.disabled = mode !== "mock" || !draftRoomState.started;
+    elements.draftUndo.disabled = mode === "cheat" || !draftRoomState.started || draftRoomState.picks.length === 0;
     elements.draftReset.disabled = mode === "cheat";
     if (mode === "cheat") {
       elements.draftStatus.textContent = "Cheat Sheet mode leaves the offline draft board inactive.";
@@ -722,8 +770,12 @@
     const rosters = renderRosters(players, state);
     const playerById = new Map(players.map((player) => [player.id, player]));
     renderRosterConstruction(state, rosters, playerById);
-    renderDraftTeamOptions(state);
-    if (currentPick > state.teams * 15) {
+    if (!draftRoomState.started) {
+      elements.currentPick.textContent = `Ready at Overall 1 (${formatPick(1, state.teams)}) · Snake Team 1`;
+      elements.draftStatus.textContent = mode === "mock"
+        ? "Settings are editable. Start Mock Draft to auto-run AI picks until your first turn."
+        : "Settings are editable. Start Live Draft to begin at pick 1; every team remains a manual active pick.";
+    } else if (currentPick > state.teams * 15) {
       elements.currentPick.textContent = "Draft complete through Round 15.";
       elements.draftStatus.textContent = `${mode === "mock" ? "Mock" : "Live"} draft complete.`;
     } else {
@@ -737,23 +789,28 @@
     if (draftRoomState.storageMessage) {
       elements.draftStatus.textContent += ` ${draftRoomState.storageMessage}`;
     }
+    if (draftRoomState.statusMessage) {
+      elements.draftStatus.textContent += ` ${draftRoomState.statusMessage}`;
+    }
     const query = elements.draftPlayerSearch.value.trim().toLowerCase();
     const position = elements.draftPositionFilter.value;
     const needsOnly = elements.draftNeedsOnly.checked;
     const candidates = getDraftCandidates(players, state, market, scarcity, rosters, currentPick)
-      .filter(({ player }) => `${player.name} ${player.position} ${player.team}`.toLowerCase().includes(query))
+      .filter(({ player }) => `${player.name} ${player.position} ${player.team} ${formatByeWeek(player)}`.toLowerCase().includes(query))
       .filter((candidate) => position === "all" || candidate.player.position === position)
       .filter((candidate) => !needsOnly || candidate.gameTheory.need !== "Depth")
       .slice(0, 60);
-    const canPick = mode === "live" || (mode === "mock" && currentPick <= state.teams * 15 && pickOwner(currentPick, state.teams) === state.slot);
+    const canPick = draftRoomState.started && (mode === "live" || (mode === "mock" && currentPick <= state.teams * 15 && pickOwner(currentPick, state.teams) === state.slot));
     elements.availablePlayers.innerHTML = candidates.map((candidate) => `
       <article class="available-player">
-        <span><strong>${candidate.player.name} · ${candidate.player.position}</strong><small>Tier ${candidate.tier} · ${candidate.gameTheory.action} · ${formatProbability(candidate.availability)} available now · ${candidate.gameTheory.need}</small></span>
+        <span><strong>${candidate.player.name} · ${candidate.player.position}</strong><small>${formatByeWeek(candidate.player)} · Tier ${candidate.tier} · ${candidate.gameTheory.action} · ${formatProbability(candidate.availability)} available now · ${candidate.gameTheory.need}</small></span>
         <button type="button" data-draft-player="${candidate.player.id}" ${canPick ? "" : "disabled"}>Draft now</button>
       </article>`).join("") || "<p class=\"queue-fallback\">No matching available players.</p>";
     elements.draftedBoard.innerHTML = draftRoomState.picks.map((pick, index) => {
       const player = playerById.get(pick.playerId);
-      return `<li><span><strong>${index + 1}. ${player ? player.name : pick.playerId}</strong><small>Team ${pick.team} · ${player ? player.position : "unknown"}</small></span></li>`;
+      const owner = pickOwner(index + 1, state.teams);
+      const yourPick = owner === state.slot ? " your-pick" : "";
+      return `<li class="${yourPick.trim()}"><span><strong>${index + 1}. ${player ? player.name : pick.playerId}</strong><small>Team ${pick.team} · ${player ? `${player.position} · ${formatByeWeek(player)}` : "unknown"}</small></span></li>`;
     }).join("") || "<li>No picks yet.</li>";
     renderPriorityPanel(players, state, market, scarcity, rosters, currentPick);
   };
@@ -887,7 +944,7 @@
             <li>
               <span>
                 <span class="queue-player">${player.name} <span aria-label="${player.position}">${player.position}</span></span>
-                <span class="queue-meta">Rank ${player.rank} · Yahoo ${formatAdp(player.adp.yahoo)} · Consensus ${formatAdp(consensus)} · ${status.detail}</span>
+                <span class="queue-meta">Rank ${player.rank} · ${formatByeWeek(player)} · Yahoo ${formatAdp(player.adp.yahoo)} · Consensus ${formatAdp(consensus)} · ${status.detail}</span>
                 <span class="queue-meta"><strong>Available ${formatProbability(availability)}</strong> · Next-pick survival ${formatProbability(survival)} · <strong>${gameTheory.action}</strong></span>
                 <span class="queue-meta">${formatPoints(projection)} · VORP ${isAdp(vorp) ? vorp.toFixed(1) : "unavailable"} · ${gameTheory.drop.label}${isAdp(gameTheory.drop.projectionDrop) ? ` (${gameTheory.drop.projectionDrop.toFixed(1)} pts)` : ""} · ${gameTheory.need}</span>
               </span>
@@ -902,7 +959,7 @@
     const query = elements.search.value.trim().toLowerCase();
     const nextPick = snakePicks(state.teams, state.slot, 1)[0];
     const followingPick = snakePicks(state.teams, state.slot, 2)[1];
-    const matching = players.filter((player) => `${player.name} ${player.position} ${player.team}`.toLowerCase().includes(query));
+    const matching = players.filter((player) => `${player.name} ${player.position} ${player.team} ${formatByeWeek(player)}`.toLowerCase().includes(query));
     elements.rankings.replaceChildren(...matching.map((player) => {
       const window = targetWindow(player, market);
       const status = classify(player, nextPick, followingPick, market);
@@ -915,7 +972,7 @@
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${player.rank}</td>
-        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${isAdp(projection) ? "projection matched" : "projection unavailable"}</small></td>
+        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${formatByeWeek(player)} · ${isAdp(projection) ? "projection matched" : "projection unavailable"}</small></td>
         <td>${player.position}</td>
         <td>${formatAdp(player.adp.yahoo)}</td>
         <td>${formatAdp(consensus)}</td>
@@ -953,6 +1010,8 @@
 
   const resetDraftForSettings = () => {
     draftRoomState.picks = [];
+    draftRoomState.started = false;
+    draftRoomState.statusMessage = "";
     renderSlots();
     render();
   };
@@ -966,11 +1025,33 @@
   elements.draftMode.addEventListener("change", () => {
     const state = getState();
     draftRoomState.mode = elements.draftMode.value;
+    draftRoomState.statusMessage = "";
+    draftRoomState.started = false;
     if (draftRoomState.mode === "live") {
       loadLiveDraft(state);
     } else if (draftRoomState.mode === "mock") {
       draftRoomState.picks = [];
       draftRoomState.seed = Number(elements.mockSeed.value) || 2026;
+    }
+    render();
+  });
+  elements.draftStart.addEventListener("click", () => {
+    const state = getState();
+    if (draftRoomState.mode === "cheat" || draftRoomState.started) {
+      return;
+    }
+    draftRoomState.picks = [];
+    draftRoomState.started = true;
+    draftRoomState.statusMessage = "";
+    if (draftRoomState.mode === "mock") {
+      draftRoomState.seed = Number(elements.mockSeed.value) || 2026;
+      const players = getPlayers(state.scoring);
+      const market = getMarketContext(state);
+      const scarcity = createScarcityModel(players, state, market);
+      playMockUntilUser(players, state, market, scarcity);
+    } else {
+      clearLiveDraft(state);
+      saveLiveDraft(state);
     }
     render();
   });
@@ -982,18 +1063,21 @@
     const state = getState();
     const currentPick = getCurrentOverallPick();
     const snakeOwner = pickOwner(currentPick, state.teams);
-    if (draftRoomState.mode === "mock" && snakeOwner !== state.slot) {
+    if (!draftRoomState.started || (draftRoomState.mode === "mock" && snakeOwner !== state.slot)) {
       return;
     }
-    const assignedTeam = draftRoomState.mode === "live" && elements.draftTeam.value !== "auto"
-      ? Number(elements.draftTeam.value)
-      : snakeOwner;
-    if (addDraftPick(button.dataset.draftPlayer, state, assignedTeam)) {
+    if (addDraftPick(button.dataset.draftPlayer, state, snakeOwner)) {
+      if (draftRoomState.mode === "mock") {
+        const players = getPlayers(state.scoring);
+        const market = getMarketContext(state);
+        const scarcity = createScarcityModel(players, state, market);
+        playMockUntilUser(players, state, market, scarcity);
+      }
       render();
     }
   });
   elements.mockNext.addEventListener("click", () => {
-    if (draftRoomState.mode !== "mock") {
+    if (draftRoomState.mode !== "mock" || !draftRoomState.started) {
       return;
     }
     const state = getState();
@@ -1004,7 +1088,7 @@
     render();
   });
   elements.mockRun.addEventListener("click", () => {
-    if (draftRoomState.mode !== "mock") {
+    if (draftRoomState.mode !== "mock" || !draftRoomState.started) {
       return;
     }
     const state = getState();
@@ -1015,18 +1099,18 @@
     render();
   });
   elements.draftUndo.addEventListener("click", () => {
+    if (!draftRoomState.started) {
+      return;
+    }
     draftRoomState.picks.pop();
     saveLiveDraft(getState());
     render();
   });
-  elements.mockNew.addEventListener("click", () => {
-    draftRoomState.picks = [];
-    draftRoomState.seed = Number(elements.mockSeed.value) || 2026;
-    render();
-  });
   elements.draftReset.addEventListener("click", () => {
-    if (window.confirm("Reset this offline draft board? This clears the local picks for these settings.")) {
+    if (window.confirm("Restart this draft and unlock all settings? This clears the current board.")) {
       draftRoomState.picks = [];
+      draftRoomState.started = false;
+      draftRoomState.statusMessage = "Draft reset. Settings are unlocked.";
       clearLiveDraft(getState());
       render();
     }

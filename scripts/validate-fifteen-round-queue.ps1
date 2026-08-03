@@ -8,7 +8,7 @@ if ([string]::IsNullOrWhiteSpace($DataPath)) {
 
 $source = Get-Content -LiteralPath $DataPath -Raw
 $appSource = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\assets\app.js") -Raw
-$playerPattern = '^\s*\["(?<id>[^"]+)","(?<name>[^"]+)","(?<position>[^"]+)","(?<team>[^"]*)",(?<yahoo>[\d.]+|null),(?<sleeper>[\d.]+|null),(?<rtSports>[\d.]+|null),(?<average>[\d.]+|null),(?<realTime>[\d.]+|null)\],?\r?$'
+$playerPattern = '^\s*\["(?<id>[^"]+)","(?<name>[^"]+)","(?<position>[^"]+)","(?<team>[^"]*)",(?<byeWeek>\d+|null),(?<yahoo>[\d.]+|null),(?<sleeper>[\d.]+|null),(?<rtSports>[\d.]+|null),(?<average>[\d.]+|null),(?<realTime>[\d.]+|null)\],?\r?$'
 $rankPattern = '\["(?<id>[^"]+)",(?<rank>\d+),(?<tier>\d+)\]'
 $players = @{}
 

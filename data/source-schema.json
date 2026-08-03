@@ -52,12 +52,13 @@
     },
     "player": {
       "type": "object",
-      "required": ["id", "name", "position", "team", "rank", "projectedPoints", "tier", "adp"],
+      "required": ["id", "name", "position", "team", "byeWeek", "rank", "projectedPoints", "tier", "adp"],
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "position": { "enum": ["QB", "RB", "WR", "TE", "K", "DST"] },
         "team": { "type": "string" },
+        "byeWeek": { "type": ["integer", "null"], "minimum": 1, "maximum": 18 },
         "rank": { "type": "integer", "minimum": 1 },
         "projectedPoints": { "type": ["number", "null"] },
         "tier": { "type": "integer", "minimum": 1 },
