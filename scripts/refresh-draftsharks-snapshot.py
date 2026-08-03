@@ -81,6 +81,50 @@ def parse_public_tables(document: str) -> list[dict[str, object]]:
     return []
 
 
+def parse_source_updated_at(document: str) -> str | None:
+    match = re.search(
+        r"last\s+(?:updated|update)\s*(?:on|:|-)?\s*([^<\r\n]{3,100})",
+        document,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+
+    candidate = " ".join(match.group(1).split())
+    iso_match = re.search(
+        r"\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})",
+        candidate,
+    )
+    if iso_match:
+        try:
+            return dt.datetime.fromisoformat(iso_match.group().replace("Z", "+00:00")).isoformat()
+        except ValueError:
+            return None
+
+    named_match = re.search(
+        r"([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4}\s+(?:at\s+)?\d{1,2}:\d{2}\s+[AP]M\s+(PST|PDT|UTC))",
+        candidate,
+        flags=re.IGNORECASE,
+    )
+    if not named_match:
+        return None
+
+    timestamp = named_match.group(1)
+    timezone_name = named_match.group(2).upper()
+    offsets = {
+        "PST": dt.timezone(dt.timedelta(hours=-8)),
+        "PDT": dt.timezone(dt.timedelta(hours=-7)),
+        "UTC": dt.timezone.utc,
+    }
+    for date_format in ("%B %d, %Y at %I:%M %p %Z", "%b %d, %Y at %I:%M %p %Z", "%B %d, %Y %I:%M %p %Z", "%b %d, %Y %I:%M %p %Z"):
+        try:
+            parsed = dt.datetime.strptime(timestamp, date_format)
+            return parsed.replace(tzinfo=offsets[timezone_name]).isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def fetch_document(url: str) -> str:
     request = urllib.request.Request(
         url,
@@ -113,6 +157,7 @@ def main() -> int:
                 "The public response did not contain a stable table with at least 20 unique player/ADP records. "
                 "No snapshot or dashboard data was changed."
             )
+        source_updated_at = parse_source_updated_at(document)
 
         payload = {"snapshots": []}
         if args.snapshot_path.exists():
@@ -127,6 +172,8 @@ def main() -> int:
                 "teams": int(args.teams),
                 "sourceUrl": source_url,
                 "fetchedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "sourceUpdatedAt": source_updated_at,
+                "sourceTimestampStatus": "validated" if source_updated_at else "unavailable",
                 "validated": True,
                 "recordCount": len(records),
                 "records": records,
@@ -139,6 +186,7 @@ def main() -> int:
             f"- Source: {source_url}\n"
             f"- Filter: {args.scoring}, {args.teams} teams\n"
             f"- Validated player/ADP records: {len(records)}\n"
+            f"- Source page last updated: {source_updated_at or 'unavailable in the validated public response'}\n"
             f"- Snapshot: `{args.snapshot_path}`\n\n"
             "The core Yahoo-primary ranking board was not modified.\n",
             encoding="utf-8",

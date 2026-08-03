@@ -193,6 +193,32 @@ a:focus-visible {
   margin-bottom: 1rem;
 }
 
+.freshness-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+  margin: 1rem 0;
+}
+
+.freshness-list div {
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgb(4 12 22 / 32%);
+}
+
+.freshness-list dt {
+  color: var(--muted);
+  font-size: .75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.freshness-list dd {
+  margin: .3rem 0 0;
+  font-size: .86rem;
+}
+
 .button-link {
   display: inline-flex;
   align-items: center;
@@ -519,7 +545,8 @@ td:first-child {
   .filters,
   .summary-grid,
   .lower-grid,
-  .draft-queue {
+  .draft-queue,
+  .freshness-list {
     grid-template-columns: 1fr;
   }
 

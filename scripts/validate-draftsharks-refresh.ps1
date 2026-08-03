@@ -10,13 +10,18 @@ $snapshot = Get-Content -LiteralPath (Join-Path $RepositoryRoot "data\draftshark
 
 foreach ($required in @(
   'id="draftsharks-source"',
-  'id="draftsharks-refresh"',
+  'id="draftsharks-local-refresh"',
+  'id="draftsharks-source-updated"',
   'id="draftsharks-status"',
-  'DraftSharks consensus ADP'
+  'DraftSharks consensus ADP',
+  'daily at 8:00 AM America/Los_Angeles'
 )) {
   if (-not $index.Contains($required)) {
     throw "Missing DraftSharks UI control: $required"
   }
+}
+if ($index.Contains('id="draftsharks-refresh"') -or $index.Contains("Refresh DraftSharks ADP")) {
+  throw "The dashboard still exposes a manual DraftSharks refresh control."
 }
 
 foreach ($required in @(
@@ -26,7 +31,9 @@ foreach ($required in @(
   'DraftSharks snapshot metadata could not be loaded. The local Yahoo-primary board is unaffected',
   'const isValidatedSnapshot = (snapshot, state) =>',
   'Consensus ADP: ${market.consensusSource}',
-  'Players absent from the snapshot use local AVG.'
+  'Players absent from the snapshot use local AVG.',
+  'Source timestamp unavailable in the validated public response.',
+  'sourceUpdatedAt'
 )) {
   if (-not $app.Contains($required)) {
     throw "Missing DraftSharks application behavior: $required"
@@ -35,13 +42,14 @@ foreach ($required in @(
 
 foreach ($required in @(
   "workflow_dispatch:",
-  "scoring:",
-  "teams:",
+  'cron: "0 15 * * *"',
+  'cron: "0 16 * * *"',
+  "draftsharks-schedule-guard.py",
+  "for scoring in ppr half-ppr",
+  "for teams in 10 12 14",
   "data/draftsharks-snapshots.json",
-  "continue-on-error: true",
-  "if: steps.refresh.outcome == 'success'",
-  "if: steps.refresh.outcome != 'success'",
-  "exit 1"
+  "existing snapshot preserved",
+  "git diff --quiet -- data/draftsharks-snapshots.json"
 )) {
   if (-not $workflow.Contains($required)) {
     throw "Missing guarded workflow behavior: $required"
@@ -52,6 +60,8 @@ foreach ($required in @(
   "len(records) < 20",
   "No snapshot or dashboard data was changed.",
   "The core Yahoo-primary ranking board was not modified.",
+  "def parse_source_updated_at(document: str) -> str | None:",
+  "sourceTimestampStatus",
   "return 1"
 )) {
   if (-not $refreshScript.Contains($required)) {

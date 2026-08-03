@@ -7,7 +7,7 @@
     <title>Draft Compass | Fantasy Football Dashboard</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
-    <script src="assets/app.js?v=20260803-adp-availability" defer></script>
+    <script src="assets/app.js?v=20260803-draftsharks-status" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -73,17 +73,27 @@
       <section class="panel draftsharks-panel" aria-labelledby="draftsharks-title">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Optional market snapshot</p>
+            <p class="eyebrow">ADP freshness and source status</p>
             <h2 id="draftsharks-title">DraftSharks consensus ADP</h2>
           </div>
           <p>A validated matching snapshot replaces consensus market ADP only; Yahoo remains primary and Guru rankings stay unchanged.</p>
         </div>
+        <dl class="freshness-list">
+          <div>
+            <dt>Local snapshot refresh</dt>
+            <dd id="draftsharks-local-refresh">Loading...</dd>
+          </div>
+          <div>
+            <dt>Selected source and filter</dt>
+            <dd><a id="draftsharks-source" href="https://www.draftsharks.com/adp/ppr/consensus/12" target="_blank" rel="noopener">Open DraftSharks source</a></dd>
+          </div>
+          <div>
+            <dt>Source page last updated</dt>
+            <dd id="draftsharks-source-updated">Loading...</dd>
+          </div>
+        </dl>
         <p id="draftsharks-status" class="draftsharks-status" aria-live="polite">Loading DraftSharks snapshot metadata...</p>
-        <div class="draftsharks-actions">
-          <a id="draftsharks-source" class="button-link secondary-button" href="https://www.draftsharks.com/adp/ppr/consensus/12" target="_blank" rel="noopener">Open DraftSharks source</a>
-          <a id="draftsharks-refresh" class="button-link" href="https://github.com/sinaanaraki-619/FF2026/actions/workflows/refresh-draftsharks-adp.yml" target="_blank" rel="noopener">Refresh DraftSharks ADP</a>
-        </div>
-        <p class="method-note">Refresh opens the manual GitHub Actions workflow: choose the matching scoring and team count, then run it. GitHub enables workflow dispatch after this workflow is on the default branch. It commits a snapshot only when the public page exposes at least 20 validated player/ADP rows; a failed run leaves this board unchanged and links back to the manual source.</p>
+        <p class="method-note">A guarded GitHub Actions job attempts all six PPR/half-PPR and 10/12/14 filters daily at 8:00 AM America/Los_Angeles. It stores only validated public tables and preserves existing snapshots when DraftSharks is dynamic, blocked, or does not expose a stable table. Source page timestamps appear only when the public response provides a labeled, timezone-qualified value that the parser validates.</p>
       </section>
 
       <section class="summary-grid" aria-label="Draft summary">

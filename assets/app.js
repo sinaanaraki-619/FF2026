@@ -20,11 +20,11 @@
     sources: document.querySelector("#source-list"),
     search: document.querySelector("#player-search"),
     draftSharksSource: document.querySelector("#draftsharks-source"),
-    draftSharksRefresh: document.querySelector("#draftsharks-refresh"),
+    draftSharksLocalRefresh: document.querySelector("#draftsharks-local-refresh"),
+    draftSharksSourceUpdated: document.querySelector("#draftsharks-source-updated"),
     draftSharksStatus: document.querySelector("#draftsharks-status")
   };
 
-  const workflowUrl = "https://github.com/sinaanaraki-619/FF2026/actions/workflows/refresh-draftsharks-adp.yml";
   const draftSharksState = { snapshots: [] };
 
   const roundNeeds = [
@@ -66,6 +66,7 @@
   const isValidatedSnapshot = (snapshot, state) => {
     if (!snapshot || snapshot.validated !== true || snapshot.scoring !== draftSharksScoring(state.scoring) || Number(snapshot.teams) !== state.teams
       || snapshot.sourceUrl !== draftSharksUrl(state) || !isAdp(Date.parse(snapshot.fetchedAt))
+      || (snapshot.sourceUpdatedAt !== null && snapshot.sourceUpdatedAt !== undefined && !isAdp(Date.parse(snapshot.sourceUpdatedAt)))
       || !Array.isArray(snapshot.records) || snapshot.recordCount < 20 || snapshot.records.length < 20) {
       return false;
     }
@@ -224,11 +225,16 @@
     const sourceUrl = draftSharksUrl(state);
     elements.draftSharksSource.href = sourceUrl;
     elements.draftSharksSource.textContent = `Open DraftSharks ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} ${state.teams}-team source`;
-    elements.draftSharksRefresh.href = `${workflowUrl}?query=branch%3Asinaanaraki-619-build-draft-dashboard`;
 
     if (market.snapshot) {
+      elements.draftSharksLocalRefresh.textContent = `${formatSnapshotDate(market.snapshot.fetchedAt)} (${market.snapshot.recordCount} validated records)`;
+      elements.draftSharksSourceUpdated.textContent = market.snapshot.sourceUpdatedAt
+        ? formatSnapshotDate(market.snapshot.sourceUpdatedAt)
+        : "Source timestamp unavailable in the validated public response.";
       elements.draftSharksStatus.textContent = `Consensus ADP: ${market.consensusSource}, refreshed ${formatSnapshotDate(market.snapshot.fetchedAt)} (${market.snapshot.recordCount} validated records). It changes market ADP only; Guru rankings remain unchanged. Players absent from the snapshot use local AVG.`;
     } else {
+      elements.draftSharksLocalRefresh.textContent = `No matching snapshot; local board refreshed ${formatDate(data.meta.dataLastRefreshed)}.`;
+      elements.draftSharksSourceUpdated.textContent = "Source timestamp unavailable because no matching validated snapshot is saved.";
       elements.draftSharksStatus.textContent = `Consensus ADP: ${market.consensusSource}, refreshed ${formatDate(data.meta.dataLastRefreshed)}. No validated DraftSharks ${state.scoring === "halfPpr" ? "half-PPR" : "PPR"} / ${state.teams}-team snapshot is saved; the queue uses local AVG.`;
     }
   };

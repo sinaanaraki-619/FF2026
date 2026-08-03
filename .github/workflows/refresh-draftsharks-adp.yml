@@ -1,18 +1,12 @@
-name: Refresh DraftSharks ADP snapshot
+name: Refresh DraftSharks ADP snapshots
 
 on:
+  schedule:
+    # 15:00 UTC is 8 AM PDT; 16:00 UTC is 8 AM PST. The Python guard below
+    # permits only the UTC run that is exactly 8:00 AM in Los Angeles.
+    - cron: "0 15 * * *"
+    - cron: "0 16 * * *"
   workflow_dispatch:
-    inputs:
-      scoring:
-        description: DraftSharks scoring filter
-        required: true
-        type: choice
-        options: [ppr, half-ppr]
-      teams:
-        description: DraftSharks league-size filter
-        required: true
-        type: choice
-        options: ["10", "12", "14"]
 
 permissions:
   contents: write
@@ -31,43 +25,61 @@ jobs:
           ref: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Attempt validated public snapshot refresh
+      - name: Guard the Pacific schedule
+        id: schedule
+        run: |
+          python3 scripts/draftsharks-schedule-guard.py --github-output "$GITHUB_OUTPUT" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Attempt all validated public snapshot refreshes
         id: refresh
-        continue-on-error: true
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.should_refresh == 'true'
         run: |
           mkdir -p refresh-report
-          python3 scripts/refresh-draftsharks-snapshot.py \
-            --scoring "${{ inputs.scoring }}" \
-            --teams "${{ inputs.teams }}" \
-            --snapshot-path data/draftsharks-snapshots.json \
-            --report-path refresh-report/report.md
+          failed=0
+          for scoring in ppr half-ppr; do
+            for teams in 10 12 14; do
+              report="refresh-report/${scoring}-${teams}.md"
+              if python3 scripts/refresh-draftsharks-snapshot.py \
+                --scoring "$scoring" \
+                --teams "$teams" \
+                --snapshot-path data/draftsharks-snapshots.json \
+                --report-path "$report"; then
+                echo "validated ${scoring}/${teams}" >> refresh-report/summary.md
+              else
+                failed=1
+                echo "unavailable ${scoring}/${teams}; existing snapshot preserved" >> refresh-report/summary.md
+              fi
+            done
+          done
+          echo "had_failures=$failed" >> "$GITHUB_OUTPUT"
 
-      - name: Publish refresh report
-        if: always()
-        run: cat refresh-report/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish refresh reports
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.should_refresh == 'true'
+        run: |
+          echo "## DraftSharks scheduled refresh" >> "$GITHUB_STEP_SUMMARY"
+          cat refresh-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+          cat refresh-report/*.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload refresh report
-        if: always()
+      - name: Note a skipped UTC candidate
+        if: github.event_name == 'schedule' && steps.schedule.outputs.should_refresh != 'true'
+        run: echo "Skipped: this UTC candidate is not exactly 8:00 AM America/Los_Angeles." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload refresh reports
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.should_refresh == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: draftsharks-refresh-report
-          path: refresh-report/report.md
+          path: refresh-report
 
-      - name: Commit validated snapshot
-        if: steps.refresh.outcome == 'success'
+      - name: Commit changed valid snapshots
+        if: github.event_name == 'workflow_dispatch' || steps.schedule.outputs.should_refresh == 'true'
         run: |
           if git diff --quiet -- data/draftsharks-snapshots.json; then
-            echo "Validated snapshot did not change; no commit needed."
+            echo "No validated snapshot changed; no deployment commit needed." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/draftsharks-snapshots.json
-          git commit -m "Refresh DraftSharks ADP snapshot"
+          git commit -m "Refresh DraftSharks ADP snapshots"
           git push origin HEAD:${{ github.ref_name }}
-
-      - name: Fail without changing dashboard data
-        if: steps.refresh.outcome != 'success'
-        run: |
-          echo "No validated DraftSharks snapshot was committed."
-          exit 1

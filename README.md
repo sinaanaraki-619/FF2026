@@ -36,6 +36,12 @@ Validate matching DraftSharks snapshot overrides and the local fallback:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-draftsharks-consensus.ps1
 ```
 
+Validate the Pacific schedule guard and source timestamp parser:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-draftsharks-schedule.ps1
+```
+
 ## Publish with GitHub Pages
 
 1. Push the default branch (`main`) containing this repository.
@@ -80,22 +86,16 @@ The HTML fingerprints its JavaScript asset URLs. When updating `assets/data.js` 
 
 DraftSharks is optional market data. A validated snapshot that exactly matches the selected scoring and league size replaces **consensus ADP only** for players it contains. Yahoo remains the 55% primary target input, and the Fantasy Guru-backed rank, tier, and positional strategy never change. A player absent from a matching snapshot falls back to the supplied local `AVG`.
 
-The dashboard clearly identifies the active state: `Consensus ADP: DraftSharks ... refreshed ...` when a matching snapshot is active, or the local AVG fallback when it is not. The half-PPR ranking baseline remains provisional/full-PPR-derived even when a matching half-PPR DraftSharks snapshot provides market ADP.
+The dashboard has a prominent **ADP freshness and source status** panel for the selected filters. It shows the local snapshot refresh time, exact public source URL/filter, and the DraftSharks page's own last-updated time only when the validated public response supplied a labeled, timezone-qualified timestamp. Otherwise it says the source timestamp is unavailable. The half-PPR ranking baseline remains provisional/full-PPR-derived even when a matching half-PPR DraftSharks snapshot provides market ADP.
 
 The dashboard always provides an **Open DraftSharks source** link for the selected scoring and league size:
 
 - PPR: `https://www.draftsharks.com/adp/ppr/consensus/{10|12|14}`
 - Half-PPR: `https://www.draftsharks.com/adp/half-ppr/consensus/{10|12|14}`
 
-To attempt a saved snapshot refresh:
+There is no dashboard refresh button. The workflow schedules two UTC candidates, `0 15 * * *` and `0 16 * * *`; `scripts/draftsharks-schedule-guard.py` uses the IANA `America/Los_Angeles` timezone to allow only the candidate that falls in the 8 AM Pacific hour. This handles PDT/PST transitions without running twice. The allowed run attempts PPR and half-PPR for 10, 12, and 14 teams; `workflow_dispatch` remains available to repository maintainers for an out-of-band all-filter attempt.
 
-1. Set scoring and league size in the dashboard.
-2. Select **Refresh DraftSharks ADP**.
-3. If the refresh workflow is still only in an open PR, merge it to the default branch first—GitHub registers `workflow_dispatch` controls from the default branch.
-4. In GitHub Actions, select **Run workflow**, choose the same `scoring` and `teams` inputs, and start it on the published branch.
-5. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The matching dashboard filter uses the saved consensus values to recalculate Target ADP, availability gates, risk labels, and queue alternatives.
-
-The workflow uses the public page only, checks its response for a stable table containing at least 20 unique player/ADP rows, and commits nothing if that validation fails. The dashboard repeats those safeguards before activating a snapshot: scoring, team count, canonical source URL, timestamp, and at least 20 unique valid records must all match. It writes an Actions summary and downloadable report explaining the failure, while preserving all dashboard rankings. DraftSharks can render dynamic or protected markup, so a failed workflow is expected behavior—not a partial import. In that case, use the selected source link and retain/export a permitted table for manual review before updating local source data.
+The workflow uses the public page only and does not bypass access controls. Each filter must expose a stable public table with at least 20 unique player/ADP rows before its snapshot is changed. Failed, dynamic, or blocked responses leave an existing valid snapshot untouched; valid changed snapshots are committed and Pages deploys them. The Actions summary and artifact list every filter outcome. DraftSharks has previously served dynamic or protected markup in this environment, so an unavailable source is expected to remain an explicit status, not a partial import or invented timestamp.
 
 ## Target logic
 
