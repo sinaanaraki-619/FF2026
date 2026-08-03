@@ -519,8 +519,7 @@ button.secondary-button {
   margin: .2rem 0;
 }
 
-.available-players,
-.drafted-board {
+.available-players {
   display: grid;
   gap: .4rem;
   max-height: 39rem;
@@ -528,8 +527,13 @@ button.secondary-button {
   margin: .75rem 0 0;
 }
 
-.available-player,
-.drafted-board li {
+.drafted-board {
+  max-height: 39rem;
+  overflow: auto;
+  margin-top: .75rem;
+}
+
+.available-player {
   display: flex;
   justify-content: space-between;
   gap: .6rem;
@@ -542,7 +546,6 @@ button.secondary-button {
 }
 
 .available-player small,
-.drafted-board small,
 .roster-list {
   color: var(--muted);
   font-size: .75rem;
@@ -646,9 +649,75 @@ button.secondary-button {
   border-color: var(--accent);
 }
 
-.drafted-board li.your-pick {
-  border-color: var(--accent);
-  background: rgb(103 232 196 / 10%);
+.draft-matrix-scroll {
+  min-width: max-content;
+}
+
+.draft-matrix {
+  min-width: 100%;
+  table-layout: fixed;
+  font-size: .72rem;
+}
+
+.draft-matrix th,
+.draft-matrix td {
+  min-width: 7.25rem;
+  padding: .45rem;
+  white-space: normal;
+  vertical-align: top;
+}
+
+.draft-matrix thead th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  background: #0b1525;
+}
+
+.draft-matrix tbody th {
+  position: sticky;
+  z-index: 1;
+  left: 0;
+  min-width: 4.25rem;
+  background: #0b1525;
+}
+
+.draft-matrix td {
+  border: 1px solid rgb(45 64 89 / 65%);
+  border-radius: 5px;
+  background: rgb(5 13 24 / 35%);
+}
+
+.draft-matrix td strong,
+.draft-matrix td span {
+  display: block;
+}
+
+.draft-matrix td span {
+  margin-top: .15rem;
+  color: var(--muted);
+  font-size: .66rem;
+}
+
+.draft-matrix .open-pick strong {
+  color: var(--muted);
+}
+
+.draft-matrix .user-team {
+  background: rgb(103 232 196 / 9%);
+}
+
+.draft-matrix th.user-team {
+  color: var(--accent);
+}
+
+.draft-matrix .current-draft-pick {
+  border: 2px solid var(--accent);
+  box-shadow: inset 0 0 0 1px rgb(103 232 196 / 30%);
+}
+
+.draft-matrix .drafted strong {
+  color: var(--ink);
 }
 
 .roster-list {

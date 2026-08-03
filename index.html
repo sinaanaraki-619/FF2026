@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260803-bye-weeks" defer></script>
     <script src="assets/projections.js?v=20260803-league-model" defer></script>
-    <script src="assets/app.js?v=20260803-draft-flow" defer></script>
+    <script src="assets/app.js?v=20260803-stochastic-mock" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -77,7 +77,7 @@
             <p class="eyebrow">Offline draft room</p>
             <h2 id="draft-mode-title">Live Draft + Mock Draft</h2>
           </div>
-          <p>Manual draft tracking stays in this browser. Mock managers are a deterministic practice model, not a prediction of real people.</p>
+          <p>Manual draft tracking stays in this browser. Mock managers use an ADP-led, roster-aware simulation—not a prediction of real people.</p>
         </div>
         <div class="draft-controls">
           <label>
@@ -87,10 +87,6 @@
               <option value="live">Live Draft</option>
               <option value="mock">Mock Draft</option>
             </select>
-          </label>
-          <label>
-            <span>Mock seed</span>
-            <input id="mock-seed" name="mock-seed" type="number" value="2026" min="1" step="1">
           </label>
           <label>
             <span>AI risk / reach tolerance</span>
@@ -155,7 +151,7 @@
               <p id="current-pick" class="current-pick" aria-live="polite"></p>
             </div>
             <p class="board-helper">Draft actions always apply to the active snake team. Your scheduled picks and recommendation are highlighted; Live Draft waits for manual entry at every pick.</p>
-            <ol id="drafted-board" class="drafted-board"></ol>
+            <div id="drafted-board" class="drafted-board" aria-live="polite"></div>
           </section>
 
           <aside class="analyzer-sidebar" aria-label="Draft analysis">

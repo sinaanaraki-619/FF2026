@@ -29,7 +29,6 @@
     draftSharksSourceUpdated: document.querySelector("#draftsharks-source-updated"),
     draftSharksStatus: document.querySelector("#draftsharks-status"),
     draftMode: document.querySelector("#draft-mode"),
-    mockSeed: document.querySelector("#mock-seed"),
     aiRisk: document.querySelector("#ai-risk"),
     draftStart: document.querySelector("#draft-start"),
     mockNext: document.querySelector("#mock-next"),
@@ -80,7 +79,6 @@
   const draftRoomState = {
     picks: [],
     mode: "cheat",
-    seed: 2026,
     risk: 50,
     started: false,
     storageMessage: "",
@@ -489,14 +487,6 @@
     };
   };
 
-  const deterministicRandom = (seed) => {
-    let value = (seed >>> 0) || 1;
-    return () => {
-      value = (value * 1664525 + 1013904223) >>> 0;
-      return value / 4294967296;
-    };
-  };
-
   const getDraftCandidates = (players, state, market, scarcity, rosters, currentPick, analysisTeam = state.slot) => {
     const drafted = new Set(draftRoomState.picks.map((pick) => pick.playerId));
     const playerById = new Map(players.map((player) => [player.id, player]));
@@ -594,41 +584,103 @@
     return true;
   };
 
+  const randomUnit = () => {
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return (values[0] + 1) / 4294967297;
+    }
+    return Math.random();
+  };
+
+  const sampleStandardNormal = () => {
+    const left = Math.max(Number.MIN_VALUE, randomUnit());
+    const right = randomUnit();
+    return Math.sqrt(-2 * Math.log(left)) * Math.cos(2 * Math.PI * right);
+  };
+
+  // The simulated ADP shock is tight early and widens by 0.55 picks each round, capped at 10.
+  const mockAdpDeviation = (round) => Math.min(10, 1.15 + (round - 1) * .55);
+
+  const mockRosterAdjustment = (player, roster, round, state, market) => {
+    const required = { QB: 1, RB: 2, WR: 2, TE: 1 };
+    const starterTarget = required[player.position] || 0;
+    const coreMissing = Object.entries(required)
+      .filter(([position, count]) => (roster[position] || 0) < count).length;
+    const count = roster[player.position] || 0;
+    const flexEligible = flexPositions.has(player.position);
+    const flexFilled = Math.max(0, roster.RB - required.RB)
+      + Math.max(0, roster.WR - required.WR)
+      + Math.max(0, roster.TE - required.TE);
+    const exceptionalValue = Math.min(2, Math.max(0, valueGap(player, market)) * .07);
+    let adjustment = exceptionalValue;
+
+    if (player.position === "K" || player.position === "DST") {
+      return round <= 12 ? -12 : -2 + exceptionalValue;
+    }
+    if (starterTarget && count < starterTarget) {
+      adjustment += 2.25;
+    }
+    if (flexEligible && coreMissing === 0 && flexFilled < state.flex) {
+      adjustment += .8;
+    }
+    if (starterTarget && count >= starterTarget && coreMissing > 0) {
+      adjustment -= 4.25 + Math.max(0, count - starterTarget) * 1.25;
+    }
+    if (flexEligible && count >= starterTarget + state.flex) {
+      adjustment -= 3.75 + (count - starterTarget - state.flex) * 1.25;
+    }
+    if ((player.position === "QB" || player.position === "TE") && count >= starterTarget && round < 11) {
+      adjustment -= 2.5;
+    }
+    return adjustment;
+  };
+
+  const mockSelectionWeight = (player, roster, currentPick, round, state, market) => {
+    const risk = Number(elements.aiRisk.value) / 100;
+    const expectedPick = currentPick + sampleStandardNormal() * mockAdpDeviation(round);
+    const temperature = 1.35 + round * .18 + risk * .65;
+    const adpFit = -Math.abs(weightedAdp(player, market) - expectedPick) / temperature;
+    const rosterFit = mockRosterAdjustment(player, roster, round, state, market);
+    return Math.exp(Math.max(-14, Math.min(4, adpFit + rosterFit)));
+  };
+
   const chooseMockPlayer = (players, state, market, scarcity, rosters, currentPick) => {
-    const candidates = getDraftCandidates(
-      players,
-      state,
-      market,
-      scarcity,
-      rosters,
-      currentPick,
-      pickOwner(currentPick, state.teams)
-    ).slice(0, 18);
+    const owner = pickOwner(currentPick, state.teams);
+    const drafted = new Set(draftRoomState.picks.map((pick) => pick.playerId));
+    const playerById = new Map(players.map((player) => [player.id, player]));
+    const roster = rosterCounts(rosters[owner - 1], playerById);
+    const round = Math.ceil(currentPick / state.teams);
+    const candidates = players
+      .filter((player) => !drafted.has(player.id) && targetWindow(player, market))
+      .map((player) => ({
+        player,
+        weight: mockSelectionWeight(player, roster, currentPick, round, state, market)
+      }))
+      .filter(({ weight }) => weight > 0);
     if (!candidates.length) {
       return null;
     }
-    const random = deterministicRandom(draftRoomState.seed + currentPick * 7919);
-    const risk = Number(elements.aiRisk.value) / 100;
-    const weighted = candidates.map((candidate, index) => ({
-      candidate,
-      weight: Math.max(.05, (18 - index) * (1 - risk * .45) + random() * (1 + risk * 8))
-    }));
-    const total = weighted.reduce((sum, item) => sum + item.weight, 0);
-    let threshold = random() * total;
-    for (const item of weighted) {
+    const total = candidates.reduce((sum, item) => sum + item.weight, 0);
+    let threshold = randomUnit() * total;
+    for (const item of candidates) {
       threshold -= item.weight;
       if (threshold <= 0) {
-        return item.candidate.player;
+        return item.player;
       }
     }
-    return weighted[0].candidate.player;
+    return candidates[0].player;
   };
 
   const playMockUntilUser = (players, state, market, scarcity, stopAfterOne = false) => {
     while (getCurrentOverallPick() <= state.teams * 15 && pickOwner(getCurrentOverallPick(), state.teams) !== state.slot) {
       const rosters = createRosters(state.teams, draftRoomState.picks);
       const player = chooseMockPlayer(players, state, market, scarcity, rosters, getCurrentOverallPick());
-      if (!player || !addDraftPick(player.id, state, pickOwner(getCurrentOverallPick(), state.teams))) {
+      if (!player) {
+        draftRoomState.statusMessage = "The 198-player source-backed board is exhausted; remaining matrix cells stay as pick placeholders rather than using fabricated players.";
+        break;
+      }
+      if (!addDraftPick(player.id, state, pickOwner(getCurrentOverallPick(), state.teams))) {
         break;
       }
       if (stopAfterOne) {
@@ -731,8 +783,9 @@
 
   const renderDraftConfiguration = (state) => {
     const picks = snakePicks(state.teams, state.slot, 15);
+    const mockDetail = draftRoomState.mode === "mock" ? " · Mock: ADP-led roster-aware simulation" : "";
     elements.yourTeam.textContent = `Your team: pick ${state.slot} (Team ${state.slot})`;
-    elements.draftConfigSummary.textContent = `${state.formatLabel} · ${state.teams} teams · ${state.flex} flex · scheduled picks ${picks.slice(0, 3).map((pick) => formatPick(pick, state.teams)).join(", ")}${picks.length > 3 ? "…" : ""}`;
+    elements.draftConfigSummary.textContent = `${state.formatLabel} · ${state.teams} teams · ${state.flex} flex · scheduled picks ${picks.slice(0, 3).map((pick) => formatPick(pick, state.teams)).join(", ")}${picks.length > 3 ? "…" : ""}${mockDetail}`;
   };
 
   const setDraftSettingsLocked = (locked) => {
@@ -742,11 +795,43 @@
       elements.teams,
       elements.flex,
       elements.draftMode,
-      elements.mockSeed,
       elements.aiRisk
     ].forEach((control) => {
       control.disabled = locked;
     });
+  };
+
+  const overallPickForCell = (round, team, teams) => round % 2 === 1
+    ? (round - 1) * teams + team
+    : round * teams - team + 1;
+
+  const renderDraftMatrix = (players, state, currentPick) => {
+    const playerById = new Map(players.map((player) => [player.id, player]));
+    const picksByOverall = new Map(draftRoomState.picks.map((pick, index) => [index + 1, pick]));
+    const headers = Array.from({ length: state.teams }, (_, index) => {
+      const team = index + 1;
+      return `<th scope="col" class="${team === state.slot ? "user-team" : ""}">Team ${team}${team === state.slot ? " (you)" : ""}</th>`;
+    }).join("");
+    const rows = Array.from({ length: 15 }, (_, index) => {
+      const round = index + 1;
+      const cells = Array.from({ length: state.teams }, (_, teamIndex) => {
+        const team = teamIndex + 1;
+        const overallPick = overallPickForCell(round, team, state.teams);
+        const pick = picksByOverall.get(overallPick);
+        const player = pick ? playerById.get(pick.playerId) : null;
+        const classes = [
+          team === state.slot ? "user-team" : "",
+          overallPick === currentPick && draftRoomState.started ? "current-draft-pick" : "",
+          player ? "drafted" : "open-pick"
+        ].filter(Boolean).join(" ");
+        const content = player
+          ? `<strong>${player.name}</strong><span>${player.position} · ${formatByeWeek(player)}</span>`
+          : `<strong>Pick ${overallPick}</strong><span>Overall ${overallPick}</span>`;
+        return `<td class="${classes}">${content}</td>`;
+      }).join("");
+      return `<tr><th scope="row">Round ${round}</th>${cells}</tr>`;
+    }).join("");
+    elements.draftedBoard.innerHTML = `<div class="draft-matrix-scroll"><table class="draft-matrix"><thead><tr><th scope="col">Round</th>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
   };
 
   const renderDraftRoom = (players, state, market, scarcity) => {
@@ -763,6 +848,7 @@
     elements.draftUndo.disabled = mode === "cheat" || !draftRoomState.started || draftRoomState.picks.length === 0;
     elements.draftReset.disabled = mode === "cheat";
     if (mode === "cheat") {
+      renderDraftMatrix(players, state, getCurrentOverallPick());
       elements.draftStatus.textContent = "Cheat Sheet mode leaves the offline draft board inactive.";
       return;
     }
@@ -806,12 +892,7 @@
         <span><strong>${candidate.player.name} · ${candidate.player.position}</strong><small>${formatByeWeek(candidate.player)} · Tier ${candidate.tier} · ${candidate.gameTheory.action} · ${formatProbability(candidate.availability)} available now · ${candidate.gameTheory.need}</small></span>
         <button type="button" data-draft-player="${candidate.player.id}" ${canPick ? "" : "disabled"}>Draft now</button>
       </article>`).join("") || "<p class=\"queue-fallback\">No matching available players.</p>";
-    elements.draftedBoard.innerHTML = draftRoomState.picks.map((pick, index) => {
-      const player = playerById.get(pick.playerId);
-      const owner = pickOwner(index + 1, state.teams);
-      const yourPick = owner === state.slot ? " your-pick" : "";
-      return `<li class="${yourPick.trim()}"><span><strong>${index + 1}. ${player ? player.name : pick.playerId}</strong><small>Team ${pick.team} · ${player ? `${player.position} · ${formatByeWeek(player)}` : "unknown"}</small></span></li>`;
-    }).join("") || "<li>No picks yet.</li>";
+    renderDraftMatrix(players, state, currentPick);
     renderPriorityPanel(players, state, market, scarcity, rosters, currentPick);
   };
 
@@ -1031,7 +1112,6 @@
       loadLiveDraft(state);
     } else if (draftRoomState.mode === "mock") {
       draftRoomState.picks = [];
-      draftRoomState.seed = Number(elements.mockSeed.value) || 2026;
     }
     render();
   });
@@ -1044,7 +1124,6 @@
     draftRoomState.started = true;
     draftRoomState.statusMessage = "";
     if (draftRoomState.mode === "mock") {
-      draftRoomState.seed = Number(elements.mockSeed.value) || 2026;
       const players = getPlayers(state.scoring);
       const market = getMarketContext(state);
       const scarcity = createScarcityModel(players, state, market);

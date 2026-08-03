@@ -54,6 +54,9 @@ foreach ($required in @(
 if ($index.Contains('id="draft-team"') -or $index.Contains('Assign manual pick to')) {
   throw "The draft UI still exposes an independent manual team selector."
 }
+if ($index.Contains('mock-seed') -or $index.Contains('Mock seed')) {
+  throw "The mock UI still exposes a seed control."
+}
 foreach ($required in @(
   'const pickOwner = (overallPick, teams) =>',
   'const conditionalSurvivalEstimate = (player, state, market, scarcity, rosters, currentPick, playerById) =>',
@@ -63,6 +66,14 @@ foreach ($required in @(
   'const renderDraftConfiguration = (state) =>',
   'const setDraftSettingsLocked = (locked) =>',
   'const formatByeWeek = (player) =>',
+  'const randomUnit = () =>',
+  'const sampleStandardNormal = () =>',
+  'const mockAdpDeviation = (round) => Math.min(10, 1.15 + (round - 1) * .55);',
+  'const mockRosterAdjustment = (player, roster, round, state, market) =>',
+  'const mockSelectionWeight = (player, roster, currentPick, round, state, market) =>',
+  'const overallPickForCell = (round, team, teams) =>',
+  'const renderDraftMatrix = (players, state, currentPick) =>',
+  'class="draft-matrix"',
   'analysisTeam = state.slot',
   'const saveLiveDraft = (state) =>',
   'const loadLiveDraft = (state) =>',
@@ -72,6 +83,9 @@ foreach ($required in @(
 )) {
   if (-not $app.Contains($required)) {
     throw "Interactive draft behavior is missing: $required"
+  }
+  if ($app.Contains('mockSeed') -or $app.Contains('deterministicRandom')) {
+    throw "The mock implementation still contains deterministic seed behavior."
   }
   if (-not $data.Contains('byeWeek')) {
     throw "Source-backed player data does not expose bye weeks."
@@ -152,6 +166,113 @@ if ((Format-ByeWeek 7) -ne "Bye 7" -or (Format-ByeWeek $null) -ne "Bye unavailab
   throw "Bye-week display does not handle sourced and missing values."
 }
 
+function Get-StandardNormal {
+  param([System.Random]$Random)
+
+  $left = [math]::Max([double]::Epsilon, $Random.NextDouble())
+  return [math]::Sqrt(-2 * [math]::Log($left)) * [math]::Cos(2 * [math]::PI * $Random.NextDouble())
+}
+
+function Get-MockDeviation {
+  param([int]$Round)
+
+  return [math]::Min(10, 1.15 + ($Round - 1) * .55)
+}
+
+function Get-StandardDeviation {
+  param([double[]]$Values)
+
+  $mean = ($Values | Measure-Object -Average).Average
+  return [math]::Sqrt((($Values | ForEach-Object { ($_ - $mean) * ($_ - $mean) } | Measure-Object -Sum).Sum) / $Values.Count)
+}
+
+$roundOneRandom = [System.Random]::new(2026)
+$roundFifteenRandom = [System.Random]::new(2026)
+$roundOneShocks = @(1..200 | ForEach-Object { (Get-StandardNormal $roundOneRandom) * (Get-MockDeviation 1) })
+$roundFifteenShocks = @(1..200 | ForEach-Object { (Get-StandardNormal $roundFifteenRandom) * (Get-MockDeviation 15) })
+if ((Get-StandardDeviation $roundFifteenShocks) -le (Get-StandardDeviation $roundOneShocks) * 4) {
+  throw "Mock ADP dispersion did not widen substantially from Round 1 to Round 15."
+}
+
+function Get-MockSequence {
+  param([int]$Seed)
+
+  $random = [System.Random]::new($Seed)
+  $available = @(1..60)
+  $sequence = @()
+  foreach ($pick in 1..15) {
+    $round = [math]::Ceiling($pick / 10)
+    $expected = $pick + (Get-StandardNormal $random * (Get-MockDeviation $round))
+    $selected = $available | Sort-Object { [math]::Abs($_ - $expected) } | Select-Object -First 1
+    $sequence += $selected
+    $available = @($available | Where-Object { $_ -ne $selected })
+  }
+  return $sequence -join ","
+}
+
+if ((Get-MockSequence 17) -eq (Get-MockSequence 29)) {
+  throw "Independent mock samples did not produce varied sequences."
+}
+
+function Get-RosterAwarePosition {
+  param([hashtable]$Roster, [int]$Round)
+
+  $candidates = @(
+    [pscustomobject]@{ Position = "RB"; Adp = 1 },
+    [pscustomobject]@{ Position = "WR"; Adp = 2 },
+    [pscustomobject]@{ Position = "QB"; Adp = 6 },
+    [pscustomobject]@{ Position = "TE"; Adp = 7 }
+  )
+  $required = @{ QB = 1; RB = 2; WR = 2; TE = 1 }
+  $coreMissing = @($required.Keys | Where-Object { $Roster[$_] -lt $required[$_] }).Count
+  return $candidates | Sort-Object {
+    $count = $Roster[$_.Position]
+    $target = $required[$_.Position]
+    $penalty = 0
+    if ($count -lt $target) {
+      $penalty -= 2.25
+    }
+    if ($count -ge $target -and $coreMissing -gt 0) {
+      $penalty += 4.25 + ($count - $target) * 1.25
+    }
+    if ($_.Position -eq "RB" -and $count -ge 4) {
+      $penalty += 5
+    }
+    [math]::Abs($_.Adp - $Round) + $penalty
+  } | Select-Object -First 1 -ExpandProperty Position
+}
+
+$normalRoster = @{ QB = 0; RB = 0; WR = 0; TE = 0 }
+$opening = @()
+foreach ($round in 1..9) {
+  $position = Get-RosterAwarePosition $normalRoster $round
+  $normalRoster[$position]++
+  $opening += $position
+}
+if (@($opening | Select-Object -First 5 | Where-Object { $_ -eq "RB" }).Count -eq 5) {
+  throw "Roster-aware mock fixture permitted a five-RB opening."
+}
+if ($normalRoster.QB -lt 1 -or $normalRoster.RB -lt 2 -or $normalRoster.WR -lt 2 -or $normalRoster.TE -lt 1) {
+  throw "Roster-aware mock fixture did not fill the core starters."
+}
+
+$matrixCells = 0
+foreach ($teams in 10, 12, 14) {
+  foreach ($round in 1..15) {
+    foreach ($team in 1..$teams) {
+      $overallPick = if ($round % 2 -eq 1) { ($round - 1) * $teams + $team } else { $round * $teams - $team + 1 }
+      if ((Get-PickOwner $overallPick $teams) -ne $team) {
+        throw "Snake matrix maps Round $round Team $team to the wrong owner for $teams teams."
+      }
+      $matrixCells++
+    }
+  }
+  if ($matrixCells -lt $teams * 15) {
+    throw "Snake matrix did not render all 15 rounds for $teams teams."
+  }
+  $matrixCells = 0
+}
+
 $playerPool = @(
   [pscustomobject]@{ Id = "qb-a"; Position = "QB"; Rank = 1; Adp = 1 },
   [pscustomobject]@{ Id = "rb-a"; Position = "RB"; Rank = 2; Adp = 2 },
@@ -210,4 +331,4 @@ if ($playerPool.Count -ne 4 -or $playerPool[0].Position -ne "QB") {
   throw "Interactive draft test fixture is invalid."
 }
 
-Write-Output "Interactive draft validation passed: 10/12/14-team snake ownership and selected-user-team starts, settings lock/restart, manual Live behavior, Mock auto-run boundaries, bye-week display, manual add/undo/reset/local persistence, conditional QB survival increase, and complete unique 15-round mock rosters."
+Write-Output "Interactive draft validation passed: 10/12/14-team snake ownership/matrix, selected-user-team starts, settings lock/restart, manual Live behavior, stochastic ADP variance and sequence diversity, roster-safe Mock construction, Mock auto-run boundaries, bye-week display, manual add/undo/reset/local persistence, conditional QB survival increase, and complete unique 15-round mock rosters."
