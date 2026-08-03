@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
     <script src="assets/projections.js?v=20260803-league-model" defer></script>
-    <script src="assets/app.js?v=20260803-live-draft" defer></script>
+    <script src="assets/app.js?v=20260803-draft-analyzer" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -112,47 +112,84 @@
       </section>
 
       <section id="draft-room" class="draft-room" hidden aria-label="Interactive draft room">
-        <section class="panel priority-panel" aria-labelledby="priority-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Your next decision</p>
-              <h2 id="priority-title">Positional priority</h2>
+        <div class="draft-analyzer">
+          <section class="panel analyzer-pane available-pane" aria-labelledby="available-title">
+            <div class="analyzer-heading">
+              <div>
+                <p class="eyebrow">Player pool</p>
+                <h2 id="available-title">Available players</h2>
+              </div>
+              <p>Source-backed targets at the current pick.</p>
             </div>
-            <p id="conditional-survival-note">Model estimate uses ADP, current rosters, tiers, and intervening teams.</p>
-          </div>
-          <div id="priority-panel" class="priority-panel-content"></div>
-        </section>
-        <section class="panel draft-board-panel" aria-labelledby="draft-board-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Draft board</p>
-              <h2 id="draft-board-title">Current pick</h2>
-            </div>
-            <p id="current-pick" class="current-pick" aria-live="polite"></p>
-          </div>
-          <div class="draft-room-grid">
-            <section>
+            <div class="available-filters">
               <label class="search-field">
                 <span class="sr-only">Search available players</span>
-                <input id="draft-player-search" type="search" placeholder="Search available players">
+                <input id="draft-player-search" type="search" placeholder="Search players">
               </label>
-              <div id="available-players" class="available-players" aria-live="polite"></div>
+              <label>
+                <span class="sr-only">Filter by position</span>
+                <select id="draft-position-filter" name="draft-position-filter">
+                  <option value="all">All positions</option>
+                  <option value="QB">QB</option>
+                  <option value="RB">RB</option>
+                  <option value="WR">WR</option>
+                  <option value="TE">TE</option>
+                  <option value="K">K</option>
+                  <option value="DST">DEF</option>
+                </select>
+              </label>
+              <label class="check-filter">
+                <input id="draft-needs-only" type="checkbox">
+                <span>Needs first</span>
+              </label>
+            </div>
+            <div id="available-players" class="available-players" aria-live="polite"></div>
+          </section>
+
+          <section class="panel analyzer-pane draft-board-panel" aria-labelledby="draft-board-title">
+            <div class="analyzer-heading">
+              <div>
+                <p class="eyebrow">Draft board</p>
+                <h2 id="draft-board-title">Current pick</h2>
+              </div>
+              <p id="current-pick" class="current-pick" aria-live="polite"></p>
+            </div>
+            <p class="board-helper">Draft actions apply to the current snake pick. Live Draft may use the team override above to correct an offline board.</p>
+            <ol id="drafted-board" class="drafted-board"></ol>
+          </section>
+
+          <aside class="analyzer-sidebar" aria-label="Draft analysis">
+            <section class="panel priority-panel" aria-labelledby="priority-title">
+              <div class="analyzer-heading">
+                <div>
+                  <p class="eyebrow">Recommendation</p>
+                  <h2 id="priority-title">Take or wait</h2>
+                </div>
+                <p id="conditional-survival-note">Model estimate uses ADP, current rosters, tiers, and intervening teams.</p>
+              </div>
+              <div id="priority-panel" class="priority-panel-content"></div>
             </section>
-            <section>
-              <h3>Drafted board</h3>
-              <ol id="drafted-board" class="drafted-board"></ol>
+            <section class="panel roster-construction-panel" aria-labelledby="roster-construction-title">
+              <div class="analyzer-heading">
+                <div>
+                  <p class="eyebrow">Your construction</p>
+                  <h2 id="roster-construction-title">Starter progress</h2>
+                </div>
+                <p>Required starters and selected flex slots.</p>
+              </div>
+              <div id="roster-construction" class="roster-construction"></div>
+              <div id="user-roster" class="user-roster"></div>
             </section>
-          </div>
-        </section>
+          </aside>
+        </div>
         <section class="panel rosters-panel" aria-labelledby="rosters-title">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Rosters</p>
-              <h2 id="rosters-title">Managers and your roster</h2>
+              <h2 id="rosters-title">League roster board</h2>
             </div>
             <p>Roster counts update after every pick; K/DEF are tracked but do not drive flex scarcity.</p>
           </div>
-          <div id="user-roster" class="user-roster"></div>
           <div id="manager-rosters" class="manager-rosters"></div>
         </section>
       </section>

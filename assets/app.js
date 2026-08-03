@@ -41,12 +41,15 @@
     draftRoom: document.querySelector("#draft-room"),
     currentPick: document.querySelector("#current-pick"),
     draftPlayerSearch: document.querySelector("#draft-player-search"),
+    draftPositionFilter: document.querySelector("#draft-position-filter"),
+    draftNeedsOnly: document.querySelector("#draft-needs-only"),
     availablePlayers: document.querySelector("#available-players"),
     draftedBoard: document.querySelector("#drafted-board"),
     userRoster: document.querySelector("#user-roster"),
     managerRosters: document.querySelector("#manager-rosters"),
     priorityPanel: document.querySelector("#priority-panel"),
-    conditionalSurvivalNote: document.querySelector("#conditional-survival-note")
+    conditionalSurvivalNote: document.querySelector("#conditional-survival-note"),
+    rosterConstruction: document.querySelector("#roster-construction")
   };
 
   const draftSharksState = { snapshots: [] };
@@ -483,12 +486,11 @@
     };
   };
 
-  const getDraftCandidates = (players, state, market, scarcity, rosters, currentPick) => {
+  const getDraftCandidates = (players, state, market, scarcity, rosters, currentPick, analysisTeam = state.slot) => {
     const drafted = new Set(draftRoomState.picks.map((pick) => pick.playerId));
     const playerById = new Map(players.map((player) => [player.id, player]));
     const nextUserPick = getNextUserOverallPick(state, currentPick + 1) || currentPick + state.teams;
-    const currentOwner = pickOwner(currentPick, state.teams);
-    const counts = rosterCounts(rosters[currentOwner - 1], playerById);
+    const counts = rosterCounts(rosters[analysisTeam - 1], playerById);
     return players
       .filter((player) => !drafted.has(player.id) && targetWindow(player, market))
       .map((player) => {
@@ -501,7 +503,17 @@
         const needWeight = gameTheory.need === "Core need" ? 12 : gameTheory.need === "Flex need" ? 6 : 0;
         const score = (220 - player.rank) + needWeight + Math.max(0, valueGap(player, market)) * .2
           + (gameTheory.drop.tierDelta * 5) + (1 - conditional.probability) * 8 - Math.abs(weightedAdp(player, market) - currentPick) * .4;
-        return { player, status, availability, conditional, gameTheory, tier, score };
+        return {
+          player,
+          status,
+          availability,
+          conditional,
+          gameTheory,
+          tier,
+          vorp: scarcity.vorp.get(player.id),
+          projection: projectedPoints(player, state),
+          score
+        };
       })
       .filter((candidate) => candidate.status.className !== "avoid" && candidate.availability >= .03)
       .sort((left, right) => right.score - left.score);
@@ -567,7 +579,15 @@
   };
 
   const chooseMockPlayer = (players, state, market, scarcity, rosters, currentPick) => {
-    const candidates = getDraftCandidates(players, state, market, scarcity, rosters, currentPick).slice(0, 18);
+    const candidates = getDraftCandidates(
+      players,
+      state,
+      market,
+      scarcity,
+      rosters,
+      currentPick,
+      pickOwner(currentPick, state.teams)
+    ).slice(0, 18);
     if (!candidates.length) {
       return null;
     }
@@ -632,6 +652,24 @@
     return rosters;
   };
 
+  const renderRosterConstruction = (state, rosters, playerById) => {
+    const counts = rosterCounts(rosters[state.slot - 1], playerById);
+    const required = { QB: 1, RB: 2, WR: 2, TE: 1 };
+    const coreFilled = Object.entries(required).reduce((total, [position, target]) =>
+      total + Math.min(target, counts[position]), 0);
+    const flexEligible = counts.RB + counts.WR + counts.TE;
+    const flexFilled = Math.min(state.flex, Math.max(0, flexEligible - (required.RB + required.WR + required.TE)));
+    const roles = Object.entries(required).map(([position, target]) => {
+      const count = counts[position];
+      const stateLabel = count >= target ? "filled" : count ? "in-progress" : "open";
+      return `<div class="roster-slot ${stateLabel}"><span>${position}</span><strong>${Math.min(count, target)}/${target}</strong></div>`;
+    });
+    roles.push(`<div class="roster-slot ${flexFilled >= state.flex ? "filled" : flexFilled ? "in-progress" : "open"}"><span>FLEX</span><strong>${flexFilled}/${state.flex}</strong></div>`);
+    elements.rosterConstruction.innerHTML = `
+      <div class="roster-slots">${roles.join("")}</div>
+      <p>${coreFilled + flexFilled}/${Object.values(required).reduce((sum, value) => sum + value, 0) + state.flex} starter/flex spots filled. K and DEF stay outside the scarcity model.</p>`;
+  };
+
   const renderPriorityPanel = (players, state, market, scarcity, rosters, currentPick) => {
     if (currentPick > state.teams * 15) {
       elements.priorityPanel.innerHTML = "<p>Draft room complete through Round 15.</p>";
@@ -642,12 +680,28 @@
       elements.priorityPanel.innerHTML = "<p>No eligible target remains in the current source-backed board.</p>";
       return;
     }
-    elements.priorityPanel.innerHTML = candidates.map((candidate, index) => {
-      const { player, gameTheory, conditional } = candidate;
-      const recommendation = index === 0 ? "Primary target" : `Alternative ${index}`;
-      return `<article class="priority-card"><span>${recommendation} · ${gameTheory.action}</span><strong>${player.name} (${player.position})</strong><span>${gameTheory.need}; ${gameTheory.drop.label}. Conditional next-pick survival ${formatProbability(conditional.probability)} (baseline ${formatProbability(conditional.baseline)}): ${conditional.detail}</span></article>`;
-    }).join("");
     const primary = candidates[0];
+    const { player, gameTheory, conditional, tier, vorp, availability } = primary;
+    elements.priorityPanel.innerHTML = `
+      <article class="primary-recommendation">
+        <span class="recommendation-action">${gameTheory.action}</span>
+        <strong>${player.name} <small>${player.position} · Tier ${tier}</small></strong>
+        <p>${gameTheory.need}; ${gameTheory.drop.label}. ${conditional.detail}</p>
+        <dl class="recommendation-metrics">
+          <div><dt>Available now</dt><dd>${formatProbability(availability)}</dd></div>
+          <div><dt>Next-pick survival</dt><dd>${formatProbability(conditional.probability)}</dd></div>
+          <div><dt>VORP</dt><dd>${isAdp(vorp) ? vorp.toFixed(1) : "N/A"}</dd></div>
+          <div><dt>Market ADP</dt><dd>${formatAdp(weightedAdp(player, market))}</dd></div>
+        </dl>
+      </article>
+      <div class="recommendation-alternatives">
+        <h3>Alternatives</h3>
+        ${candidates.slice(1).map((candidate, index) => `<article class="priority-card">
+          <span>${candidate.gameTheory.action} · Tier ${candidate.tier}</span>
+          <strong>${index + 1}. ${candidate.player.name} <small>${candidate.player.position}</small></strong>
+          <span>${candidate.gameTheory.need}; ${candidate.gameTheory.drop.label}; ${formatProbability(candidate.conditional.probability)} next-pick survival.</span>
+        </article>`).join("")}
+      </div>`;
     elements.conditionalSurvivalNote.textContent = `${primary.player.name}: ${primary.conditional.detail} Baseline ADP survival ${formatProbability(primary.conditional.baseline)}; adjusted ${formatProbability(primary.conditional.probability)}. Model estimate, not certainty.`;
   };
 
@@ -666,6 +720,8 @@
     }
     const currentPick = getCurrentOverallPick();
     const rosters = renderRosters(players, state);
+    const playerById = new Map(players.map((player) => [player.id, player]));
+    renderRosterConstruction(state, rosters, playerById);
     renderDraftTeamOptions(state);
     if (currentPick > state.teams * 15) {
       elements.currentPick.textContent = "Draft complete through Round 15.";
@@ -682,16 +738,19 @@
       elements.draftStatus.textContent += ` ${draftRoomState.storageMessage}`;
     }
     const query = elements.draftPlayerSearch.value.trim().toLowerCase();
+    const position = elements.draftPositionFilter.value;
+    const needsOnly = elements.draftNeedsOnly.checked;
     const candidates = getDraftCandidates(players, state, market, scarcity, rosters, currentPick)
       .filter(({ player }) => `${player.name} ${player.position} ${player.team}`.toLowerCase().includes(query))
+      .filter((candidate) => position === "all" || candidate.player.position === position)
+      .filter((candidate) => !needsOnly || candidate.gameTheory.need !== "Depth")
       .slice(0, 60);
     const canPick = mode === "live" || (mode === "mock" && currentPick <= state.teams * 15 && pickOwner(currentPick, state.teams) === state.slot);
     elements.availablePlayers.innerHTML = candidates.map((candidate) => `
       <article class="available-player">
-        <span><strong>${candidate.player.name} · ${candidate.player.position}</strong><small>Rank ${candidate.player.rank} · ${candidate.gameTheory.action} · conditional survival ${formatProbability(candidate.conditional.probability)} · ${candidate.gameTheory.need}</small></span>
-        <button type="button" data-draft-player="${candidate.player.id}" ${canPick ? "" : "disabled"}>Draft</button>
+        <span><strong>${candidate.player.name} · ${candidate.player.position}</strong><small>Tier ${candidate.tier} · ${candidate.gameTheory.action} · ${formatProbability(candidate.availability)} available now · ${candidate.gameTheory.need}</small></span>
+        <button type="button" data-draft-player="${candidate.player.id}" ${canPick ? "" : "disabled"}>Draft now</button>
       </article>`).join("") || "<p class=\"queue-fallback\">No matching available players.</p>";
-    const playerById = new Map(players.map((player) => [player.id, player]));
     elements.draftedBoard.innerHTML = draftRoomState.picks.map((pick, index) => {
       const player = playerById.get(pick.playerId);
       return `<li><span><strong>${index + 1}. ${player ? player.name : pick.playerId}</strong><small>Team ${pick.team} · ${player ? player.position : "unknown"}</small></span></li>`;
@@ -903,6 +962,7 @@
   [elements.slot].forEach((control) => control.addEventListener("change", resetDraftForSettings));
   elements.search.addEventListener("input", render);
   elements.draftPlayerSearch.addEventListener("input", render);
+  [elements.draftPositionFilter, elements.draftNeedsOnly, elements.aiRisk].forEach((control) => control.addEventListener("change", render));
   elements.draftMode.addEventListener("change", () => {
     const state = getState();
     draftRoomState.mode = elements.draftMode.value;

@@ -135,6 +135,8 @@ Use the **Mode** selector for three offline modes:
 - **Live Draft** lets you click available players into the current snake pick, or assign a manual correction to a selected team. It stores that pick list only in browser `localStorage`, keyed by scoring format, league size, draft slot, and flex count. Undo removes the latest pick; Reset asks for confirmation and clears that local draft.
 - **Mock Draft** reserves your snake picks for manual clicks. **Play next AI pick** advances one opposing pick; **Auto-run to my pick** advances AI opponents until your next turn. **New mock** resets the deterministic seed. AI is a practice heuristic, not a forecast of real managers: it weights ADP proximity, Guru rank/value, position need, tier drop, and the configurable reach-tolerance slider, while never selecting an already drafted player.
 
+The draft room is a responsive three-pane analyzer: the left pane filters the available player pool by name, position, or roster need; the center pane keeps the live snake board and current pick visible; and the right pane highlights the recommended target, rationale, alternatives, starter/flex construction, and your roster. The recommendation is always evaluated against **your** roster, including while a mock manager is on the clock; the mock AI separately evaluates the roster of the team making its own selection.
+
 The live conditional survival figure starts from the ADP survival model, then applies roster/game-theory pressure for the teams drafting before your next pick:
 
 `adjusted = baseline × (1 - 0.32 × position-need rate - 0.12 × same-tier run rate) + 0.12 × (1 - baseline)` when no intervening team needs that position, capped at 97%.

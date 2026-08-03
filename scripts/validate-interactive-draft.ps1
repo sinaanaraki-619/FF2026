@@ -36,9 +36,13 @@ foreach ($required in @(
   'id="draft-undo"',
   'id="draft-reset"',
   'id="available-players"',
+  'id="draft-position-filter"',
+  'id="draft-needs-only"',
   'id="drafted-board"',
   'id="manager-rosters"',
-  'id="priority-panel"'
+  'id="priority-panel"',
+  'id="roster-construction"',
+  'class="draft-analyzer"'
 )) {
   if (-not $index.Contains($required)) {
     throw "Interactive draft UI is missing: $required"
@@ -49,6 +53,8 @@ foreach ($required in @(
   'const conditionalSurvivalEstimate = (player, state, market, scarcity, rosters, currentPick, playerById) =>',
   'const chooseMockPlayer = (players, state, market, scarcity, rosters, currentPick) =>',
   'const playMockUntilUser = (players, state, market, scarcity, stopAfterOne = false) =>',
+  'const renderRosterConstruction = (state, rosters, playerById) =>',
+  'analysisTeam = state.slot',
   'const saveLiveDraft = (state) =>',
   'const loadLiveDraft = (state) =>',
   'localStorage.setItem',
