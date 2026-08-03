@@ -7,7 +7,7 @@
     <title>Draft Compass | Fantasy Football Dashboard</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
-    <script src="assets/app.js?v=20260730-draftsharks-refresh" defer></script>
+    <script src="assets/app.js?v=20260803-adp-availability" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -76,7 +76,7 @@
             <p class="eyebrow">Optional market snapshot</p>
             <h2 id="draftsharks-title">DraftSharks consensus ADP</h2>
           </div>
-          <p>DraftSharks is a separate comparison snapshot; it never replaces the Yahoo-primary local board automatically.</p>
+          <p>A validated matching snapshot replaces consensus market ADP only; Yahoo remains primary and Guru rankings stay unchanged.</p>
         </div>
         <p id="draftsharks-status" class="draftsharks-status" aria-live="polite">Loading DraftSharks snapshot metadata...</p>
         <div class="draftsharks-actions">
@@ -121,7 +121,7 @@
             <p class="eyebrow">Round-by-round queue</p>
             <h2 id="queue-title">Targets with 3–4 alternatives</h2>
           </div>
-          <p>Recommendations use Yahoo as the primary market reference and the configured scoring ranks.</p>
+          <p>Recommendations pair Yahoo-primary market ADP with Guru ranks, estimated availability, and next-pick survival.</p>
         </div>
         <div class="legend" aria-label="Recommendation labels">
           <span class="tag major-steal">Major steal</span>
@@ -155,6 +155,7 @@
                   <th scope="col">Yahoo ADP</th>
                   <th scope="col">Consensus ADP</th>
                   <th scope="col">Target ADP</th>
+                  <th scope="col">Availability</th>
                   <th scope="col">Target window</th>
                 </tr>
               </thead>
@@ -168,7 +169,7 @@
           <h2 id="sources-title">ADP sources</h2>
           <p class="source-copy">Yahoo is weighted as the primary source. The other sources are retained so updates can identify market disagreement.</p>
           <dl id="source-list" class="source-list"></dl>
-          <p class="method-note">Window logic: market (0–3 early), preferred (4–8 early), controlled reach (9–12 early only for large value), never more than 12 early.</p>
+          <p class="method-note">Availability is a deterministic estimate, not a forecast: Target ADP is modeled as a normal selection range. Spread starts at 1.75 picks, expands by 7.5% of Target ADP, and adds 35% of Yahoo/consensus disagreement (capped at 30 picks). Candidates below 8% estimated availability are hidden; next-pick survival is conditional on availability now. Window logic: market (0–3 early), preferred (4–8 early), controlled reach (9–12 early only for large value), never more than 12 early.</p>
         </aside>
       </section>
     </main>

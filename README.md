@@ -24,6 +24,18 @@ Validate the full 15-round queue across every scoring, league-size, draft-slot, 
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-fifteen-round-queue.ps1
 ```
 
+Validate the deterministic ADP availability boundaries and source-backed Wan'Dale capture case:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-adp-availability.ps1
+```
+
+Validate matching DraftSharks snapshot overrides and the local fallback:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-draftsharks-consensus.ps1
+```
+
 ## Publish with GitHub Pages
 
 1. Push the default branch (`main`) containing this repository.
@@ -66,7 +78,11 @@ The HTML fingerprints its JavaScript asset URLs. When updating `assets/data.js` 
 
 ## DraftSharks consensus snapshots
 
-DraftSharks is optional comparison data and **does not overwrite** the local Yahoo-primary/Guru-backed board. The dashboard always provides an **Open DraftSharks source** link for the selected scoring and league size:
+DraftSharks is optional market data. A validated snapshot that exactly matches the selected scoring and league size replaces **consensus ADP only** for players it contains. Yahoo remains the 55% primary target input, and the Fantasy Guru-backed rank, tier, and positional strategy never change. A player absent from a matching snapshot falls back to the supplied local `AVG`.
+
+The dashboard clearly identifies the active state: `Consensus ADP: DraftSharks ... refreshed ...` when a matching snapshot is active, or the local AVG fallback when it is not. The half-PPR ranking baseline remains provisional/full-PPR-derived even when a matching half-PPR DraftSharks snapshot provides market ADP.
+
+The dashboard always provides an **Open DraftSharks source** link for the selected scoring and league size:
 
 - PPR: `https://www.draftsharks.com/adp/ppr/consensus/{10|12|14}`
 - Half-PPR: `https://www.draftsharks.com/adp/half-ppr/consensus/{10|12|14}`
@@ -77,9 +93,9 @@ To attempt a saved snapshot refresh:
 2. Select **Refresh DraftSharks ADP**.
 3. If the refresh workflow is still only in an open PR, merge it to the default branch first—GitHub registers `workflow_dispatch` controls from the default branch.
 4. In GitHub Actions, select **Run workflow**, choose the same `scoring` and `teams` inputs, and start it on the published branch.
-5. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The dashboard displays its saved timestamp, filter, and record count.
+5. A successful run commits only `data/draftsharks-snapshots.json`, which GitHub Pages then deploys. The matching dashboard filter uses the saved consensus values to recalculate Target ADP, availability gates, risk labels, and queue alternatives.
 
-The workflow uses the public page only, checks its response for a stable table containing at least 20 unique player/ADP rows, and commits nothing if that validation fails. It writes an Actions summary and downloadable report explaining the failure, while preserving all dashboard rankings. DraftSharks can render dynamic or protected markup, so a failed workflow is expected behavior—not a partial import. In that case, use the selected source link and retain/export a permitted table for manual review before updating local source data.
+The workflow uses the public page only, checks its response for a stable table containing at least 20 unique player/ADP rows, and commits nothing if that validation fails. The dashboard repeats those safeguards before activating a snapshot: scoring, team count, canonical source URL, timestamp, and at least 20 unique valid records must all match. It writes an Actions summary and downloadable report explaining the failure, while preserving all dashboard rankings. DraftSharks can render dynamic or protected markup, so a failed workflow is expected behavior—not a partial import. In that case, use the selected source link and retain/export a permitted table for manual review before updating local source data.
 
 ## Target logic
 
@@ -95,6 +111,12 @@ For each candidate, Draft Compass computes a source-weighted ADP and target wind
 
 The guardrail never recommends a player more than 12 picks early.
 
-Queue recommendations also have an availability gate. Yahoo ADP is checked first against the supplied source `AVG`. A player is excluded when **both** Yahoo and consensus are more than half a draft round earlier than the planned pick (5 picks in 10-team leagues, 6 in 12-team leagues, and 7 in 14-team leagues). This keeps implausibly expired players out of both primary and alternate targets while still allowing realistic falls. If the local board has no eligible player left, the relevant round explains that more current rankings are needed.
+Queue recommendations use an **estimated availability model**, not a hard Yahoo/consensus cutoff. Target ADP is treated as the center of a normal selection range. Its deterministic spread is:
 
-The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB/WR depth first, with TE and QB contingency options; the selected position path, Yahoo/AVG availability gate, and risk labels continue to apply through the final round.
+`min(30, 1.75 + Target ADP × 0.075 + |Yahoo ADP − consensus ADP| × 0.35)` picks.
+
+The displayed **Available at this pick** value is the upper-tail probability that the player's modeled selection has not occurred before that pick. A candidate is suppressed only below an explicit 8% availability threshold, preventing obvious long shots such as ADP 1 at pick 5 while allowing an ADP near 100 to remain plausible around pick 105. The uncertainty model deliberately gets broader later in drafts and with greater platform disagreement; it is a repeatable decision aid, not a claim of empirical draft-outcome precision.
+
+**Next-pick survival** is the conditional probability of still being available at the manager's following snake pick, given availability now. **Take Now** captures a player with low survival or a material Guru-rank-versus-market gap; **Safe to Wait** indicates adequate conditional survival; **Value if Falls** identifies a lower-probability option that should not drive a reach. The rank-versus-market gap can make a controlled 9–12-pick reach actionable for a large-value capture, but the dashboard still never recommends more than 12 picks early.
+
+The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB/WR depth first, with TE and QB contingency options; the selected position path, active-consensus availability model, and risk labels continue to apply through the final round.

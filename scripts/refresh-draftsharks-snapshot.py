@@ -127,6 +127,7 @@ def main() -> int:
                 "teams": int(args.teams),
                 "sourceUrl": source_url,
                 "fetchedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "validated": True,
                 "recordCount": len(records),
                 "records": records,
             }

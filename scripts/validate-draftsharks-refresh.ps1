@@ -24,7 +24,9 @@ foreach ($required in @(
   'https://www.draftsharks.com/adp/${draftSharksScoring(state.scoring)}/consensus/${state.teams}',
   'fetch(`data/draftsharks-snapshots.json?cache=${Date.now()}`, { cache: "no-store" })',
   'DraftSharks snapshot metadata could not be loaded. The local Yahoo-primary board is unaffected',
-  'The queue continues to use the local Yahoo-primary board refreshed'
+  'const isValidatedSnapshot = (snapshot, state) =>',
+  'Consensus ADP: ${market.consensusSource}',
+  'Players absent from the snapshot use local AVG.'
 )) {
   if (-not $app.Contains($required)) {
     throw "Missing DraftSharks application behavior: $required"

@@ -1,0 +1,76 @@
+{
+  "snapshots": [
+    {
+      "scoring": "ppr",
+      "teams": 10,
+      "sourceUrl": "https://www.draftsharks.com/adp/ppr/consensus/10",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 16 }, { "player": "Kenneth Walker", "adp": 30 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    },
+    {
+      "scoring": "ppr",
+      "teams": 12,
+      "sourceUrl": "https://www.draftsharks.com/adp/ppr/consensus/12",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 14 }, { "player": "Kenneth Walker", "adp": 26 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    },
+    {
+      "scoring": "ppr",
+      "teams": 14,
+      "sourceUrl": "https://www.draftsharks.com/adp/ppr/consensus/14",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 12 }, { "player": "Kenneth Walker", "adp": 23 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    },
+    {
+      "scoring": "half-ppr",
+      "teams": 10,
+      "sourceUrl": "https://www.draftsharks.com/adp/half-ppr/consensus/10",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 15 }, { "player": "Kenneth Walker", "adp": 29 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    },
+    {
+      "scoring": "half-ppr",
+      "teams": 12,
+      "sourceUrl": "https://www.draftsharks.com/adp/half-ppr/consensus/12",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 13 }, { "player": "Kenneth Walker", "adp": 25 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    },
+    {
+      "scoring": "half-ppr",
+      "teams": 14,
+      "sourceUrl": "https://www.draftsharks.com/adp/half-ppr/consensus/14",
+      "fetchedAt": "2026-08-01T12:00:00Z",
+      "validated": true,
+      "recordCount": 20,
+      "records": [
+        { "player": "James Cook", "adp": 11 }, { "player": "Kenneth Walker", "adp": 22 },
+        { "player": "Fixture 01", "adp": 1 }, { "player": "Fixture 02", "adp": 2 }, { "player": "Fixture 03", "adp": 3 }, { "player": "Fixture 04", "adp": 4 }, { "player": "Fixture 05", "adp": 5 }, { "player": "Fixture 06", "adp": 6 }, { "player": "Fixture 07", "adp": 7 }, { "player": "Fixture 08", "adp": 8 }, { "player": "Fixture 09", "adp": 9 }, { "player": "Fixture 10", "adp": 10 }, { "player": "Fixture 11", "adp": 11 }, { "player": "Fixture 12", "adp": 12 }, { "player": "Fixture 13", "adp": 13 }, { "player": "Fixture 14", "adp": 14 }, { "player": "Fixture 15", "adp": 15 }, { "player": "Fixture 16", "adp": 16 }, { "player": "Fixture 17", "adp": 17 }, { "player": "Fixture 18", "adp": 18 }
+      ]
+    }
+  ]
+}

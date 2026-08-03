@@ -111,8 +111,8 @@ if (-not $source.Contains("sourceRecordCount: 198") -or -not $source.Contains("e
 if (-not $source.Contains("const halfPprOrder = pprOrder.map((entry) => [...entry]);")) {
   throw "The provisional half-PPR board is not a distinct PPR-derived structure."
 }
-if (-not $appSource.Contains("const consensusAdp = (player) => player.adp.average;")) {
-  throw "The dashboard no longer uses the supplied AVG field as consensus."
+if (-not $appSource.Contains("const consensusAdp = (player, market) => market.values.get(normalizePlayerName(player.name)) ?? player.adp.average;")) {
+  throw "The dashboard no longer retains supplied AVG as the safe per-player consensus fallback."
 }
 
 Assert-Player "jamarrchase" "Ja'Marr Chase" "WR" "CIN" 1 3 3 3 3 3
