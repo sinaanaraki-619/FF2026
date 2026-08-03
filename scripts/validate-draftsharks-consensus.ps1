@@ -28,8 +28,8 @@ function Assert-Equal {
 foreach ($required in @(
   "const getMarketContext = (state) =>",
   "const consensusAdp = (player, market) => market.values.get(normalizePlayerName(player.name)) ?? player.adp.average;",
-  "const getQueue = (players, picks, state, market) =>",
-  "const renderRankings = (players, state, market) =>",
+  "const getQueue = (players, picks, state, market, scarcity) =>",
+  "const renderRankings = (players, state, market, scarcity) =>",
   "const isPlausiblyAvailable = (player, pick, market) =>"
 )) {
   if (-not $app.Contains($required)) {

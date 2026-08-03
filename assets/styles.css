@@ -148,6 +148,10 @@ h2 {
   gap: .85rem;
 }
 
+.league-filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 label > span {
   display: block;
   margin-bottom: .35rem;
@@ -191,6 +195,34 @@ a:focus-visible {
   flex-wrap: wrap;
   gap: .7rem;
   margin-bottom: 1rem;
+}
+
+.league-model {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.league-model > div {
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgb(4 12 22 / 32%);
+}
+
+.league-model strong,
+.league-model span {
+  display: block;
+}
+
+.league-model span {
+  color: var(--muted);
+  font-size: .76rem;
+}
+
+.league-model strong {
+  margin-top: .2rem;
+  font-size: .9rem;
 }
 
 .freshness-list {
@@ -543,10 +575,12 @@ td:first-child {
   }
 
   .filters,
+  .league-filters,
   .summary-grid,
   .lower-grid,
   .draft-queue,
-  .freshness-list {
+  .freshness-list,
+  .league-model {
     grid-template-columns: 1fr;
   }
 

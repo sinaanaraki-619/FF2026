@@ -2,16 +2,19 @@
   "use strict";
 
   const data = window.DRAFT_DASHBOARD_DATA;
+  const projections = window.DRAFT_COMPASS_PROJECTIONS || {
+    meta: { sourceFileTimestamp: null, sourceRecordCount: 0, sourcePositions: [], matchedBoardRecordCount: 0 },
+    players: {}
+  };
   const elements = {
-    scoring: document.querySelector("#scoring"),
-    teams: document.querySelector("#teams"),
+    leagueFormat: document.querySelector("#league-format"),
     slot: document.querySelector("#slot"),
-    flex: document.querySelector("#flex"),
     refreshed: document.querySelector("#data-refreshed"),
     datasetNote: document.querySelector("#dataset-note"),
     provisional: document.querySelector("#provisional-message"),
     draftProfile: document.querySelector("#draft-profile"),
     formatProfile: document.querySelector("#format-profile"),
+    leagueModel: document.querySelector("#league-model"),
     nextPick: document.querySelector("#next-pick"),
     nextOverall: document.querySelector("#next-overall"),
     pickMap: document.querySelector("#pick-map"),
@@ -26,6 +29,22 @@
   };
 
   const draftSharksState = { snapshots: [] };
+  const leagueFormats = {
+    customHalfPpr: {
+      label: "Custom half-PPR",
+      scoring: "halfPpr",
+      receptionPoints: .5,
+      teams: 12,
+      flex: 2
+    },
+    customPpr: {
+      label: "Custom full PPR",
+      scoring: "ppr",
+      receptionPoints: 1,
+      teams: 12,
+      flex: 2
+    }
+  };
 
   const roundNeeds = [
     ["RB", "WR"], ["WR", "RB"], ["RB", "WR"], ["WR", "RB", "TE"], ["RB", "WR"],
@@ -210,14 +229,158 @@
     return positionIndex === -1 ? 0 : (wanted.length - positionIndex) * 4 + flexBonus;
   };
 
-  const getState = () => ({
-    scoring: elements.scoring.value,
-    teams: Number(elements.teams.value),
+  const getState = () => {
+    const format = leagueFormats[elements.leagueFormat.value];
+    return {
+    format: elements.leagueFormat.value,
+    scoring: format.scoring,
+    receptionPoints: format.receptionPoints,
+    formatLabel: format.label,
+    teams: format.teams,
     slot: Number(elements.slot.value),
-    flex: Number(elements.flex.value)
-  });
+    flex: format.flex
+    };
+  };
 
   const getPlayers = (scoring) => data.rankings[scoring].items;
+
+  const starterCounts = { QB: 1, RB: 2, WR: 2, TE: 1 };
+  const leagueWideStarterCounts = { QB: 12, RB: 24, WR: 24, TE: 12 };
+  const flexPositions = new Set(["RB", "WR", "TE"]);
+
+  const projectedPoints = (player, state) => {
+    const stats = projections && projections.players[player.id];
+    if (!stats) {
+      return null;
+    }
+    return stats.passYards / 25 + stats.passTouchdowns * 6 - stats.interceptions * 2
+      + stats.rushYards / 10 + stats.rushTouchdowns * 6
+      + stats.receptions * state.receptionPoints + stats.receivingYards / 10
+      + stats.receivingTouchdowns * 6 - stats.fumbles * 2;
+  };
+
+  const createScarcityModel = (players, state, market) => {
+    const byPosition = Object.fromEntries(["QB", "RB", "WR", "TE"].map((position) => [
+      position, players.filter((player) => player.position === position).sort((left, right) => left.rank - right.rank)
+    ]));
+    const flexPool = ["RB", "WR", "TE"].flatMap((position) =>
+      byPosition[position].slice(leagueWideStarterCounts[position])
+    ).sort((left, right) => left.rank - right.rank).slice(0, state.teams * state.flex);
+    const flexAllocation = Object.fromEntries(["RB", "WR", "TE"].map((position) => [
+      position, flexPool.filter((player) => player.position === position).length
+    ]));
+    const replacementIndex = {
+      QB: leagueWideStarterCounts.QB + 1,
+      RB: leagueWideStarterCounts.RB + flexAllocation.RB + 1,
+      WR: leagueWideStarterCounts.WR + flexAllocation.WR + 1,
+      TE: leagueWideStarterCounts.TE + flexAllocation.TE + 1
+    };
+    const replacements = Object.fromEntries(Object.entries(byPosition).map(([position, ranked]) => [
+      position, ranked[replacementIndex[position] - 1] || null
+    ]));
+    const positionalTier = new Map();
+    Object.entries(byPosition).forEach(([position, ranked]) => ranked.forEach((player, index) => {
+      positionalTier.set(player.id, 1 + Math.floor(index / 6));
+    }));
+    const projectionById = new Map(players.map((player) => [player.id, projectedPoints(player, state)]));
+    const projectionReplacementPlayer = {};
+    const projectionReplacement = Object.fromEntries(Object.entries(byPosition).map(([position, ranked]) => {
+      const projected = ranked
+        .map((player) => ({ player, points: projectionById.get(player.id) }))
+        .filter(({ points }) => isAdp(points))
+        .sort((left, right) => right.points - left.points);
+      const baseline = projected[replacementIndex[position] - 1];
+      projectionReplacementPlayer[position] = baseline ? baseline.player : null;
+      return [position, baseline ? baseline.points : null];
+    }));
+    const vorp = new Map(players.map((player) => {
+      const points = projectionById.get(player.id);
+      const baseline = projectionReplacement[player.position];
+      return [player.id, isAdp(points) && isAdp(baseline) ? points - baseline : null];
+    }));
+    return {
+      byPosition,
+      flexAllocation,
+      replacementIndex,
+      replacements,
+      positionalTier,
+      projectionById,
+      projectionReplacement,
+      projectionReplacementPlayer,
+      vorp
+    };
+  };
+
+  const tierDropBeforeNextPick = (player, nextPick, market, scarcity) => {
+    const currentTier = scarcity.positionalTier.get(player.id);
+    const positionPlayers = scarcity.byPosition[player.position];
+    if (!positionPlayers) {
+      return { label: "No QB/RB/WR/TE tier", tierDelta: 0, projectionDrop: null };
+    }
+    const fallback = positionPlayers.find((candidate) =>
+      candidate.rank > player.rank && availabilityEstimate(candidate, nextPick, market).probability >= .08
+    );
+    if (!fallback) {
+      return { label: `Tier ${currentTier} exhausted`, tierDelta: 1, projectionDrop: null };
+    }
+    const fallbackTier = scarcity.positionalTier.get(fallback.id);
+    const points = scarcity.projectionById.get(player.id);
+    const fallbackPoints = scarcity.projectionById.get(fallback.id);
+    const projectionDrop = isAdp(points) && isAdp(fallbackPoints) ? Math.max(0, points - fallbackPoints) : null;
+    return {
+      label: `Tier ${currentTier} -> ${fallbackTier}`,
+      tierDelta: Math.max(0, fallbackTier - currentTier),
+      projectionDrop
+    };
+  };
+
+  const rosterNeed = (player, roster) => {
+    const count = roster[player.position] || 0;
+    if (starterCounts[player.position] && count < starterCounts[player.position]) {
+      return "Core need";
+    }
+    const flexFilled = Math.max(0, roster.RB - starterCounts.RB)
+      + Math.max(0, roster.WR - starterCounts.WR) + Math.max(0, roster.TE - starterCounts.TE);
+    if (flexPositions.has(player.position) && flexFilled < 2) {
+      return "Flex need";
+    }
+    return "Depth";
+  };
+
+  const scarcityAction = (player, pick, nextPick, market, scarcity, roster, marketAction) => {
+    const need = rosterNeed(player, roster);
+    const drop = tierDropBeforeNextPick(player, nextPick, market, scarcity);
+    const survival = nextPickSurvival(player, pick, nextPick, market);
+    if (need === "Depth" && marketAction !== "Take Now") {
+      return { action: "Pivot", need, drop };
+    }
+    if (marketAction === "Take Now" || (need !== "Depth" && (drop.tierDelta > 0 || survival < .65))) {
+      return { action: "Take Now", need, drop };
+    }
+    if (survival >= .65) {
+      return { action: "Wait", need, drop };
+    }
+    return { action: "Take Now", need, drop };
+  };
+
+  const formatPoints = (points) => isAdp(points) ? `${points.toFixed(1)} pts` : "Projection unavailable";
+
+  const renderLeagueModel = (state, scarcity) => {
+    const entries = ["QB", "RB", "WR", "TE"].map((position) => {
+      const replacement = scarcity.projectionReplacementPlayer[position] || scarcity.replacements[position];
+      const projectedBaseline = scarcity.projectionReplacement[position];
+      const flexLabel = flexPositions.has(position) ? ` + ${scarcity.flexAllocation[position]} flex` : "";
+      const projectionLabel = isAdp(projectedBaseline)
+        ? `Projected replacement VORP baseline ${projectedBaseline.toFixed(1)} pts`
+        : "Projection VORP unavailable: no matched source projection depth";
+      const replacementLabel = isAdp(projectedBaseline) ? `projected ${position}` : position;
+      return `<div><span>${position} replacement</span><strong>${replacement ? `${replacementLabel}${scarcity.replacementIndex[position]}: ${replacement.name}` : "Unavailable"}</strong><span>${projectionLabel}${flexLabel}</span></div>`;
+    });
+    const sourceTimestamp = projections && projections.meta ? formatDate(projections.meta.sourceFileTimestamp) : "Unavailable";
+    entries.push(`<div><span>Projection source</span><strong>${projections.meta.matchedBoardRecordCount}/${data.meta.sourceRecordCount} board matches</strong><span>${projections.meta.sourcePositions.join(", ")} only · file timestamp ${sourceTimestamp}</span></div>`);
+    entries.push(`<div><span>Scoring coverage</span><strong>${state.formatLabel}</strong><span>Full PPR adds 0.5 per reception versus half-PPR. First-down and game bonus points are excluded.</span></div>`);
+    elements.leagueModel.innerHTML = entries.join("");
+  };
 
   const formatSnapshotDate = (date) => isAdp(Date.parse(date)) ? formatDate(date) : "unknown time";
 
@@ -257,7 +420,7 @@
   };
 
   const renderSlots = () => {
-    const teams = Number(elements.teams.value);
+    const teams = leagueFormats[elements.leagueFormat.value].teams;
     const selected = Math.min(Number(elements.slot.value) || 1, teams);
     elements.slot.replaceChildren(...Array.from({ length: teams }, (_, index) => {
       const option = document.createElement("option");
@@ -272,15 +435,13 @@
     const board = data.rankings[state.scoring];
     elements.refreshed.textContent = formatDate(data.meta.dataLastRefreshed);
     elements.datasetNote.textContent = market.snapshot ? `Guru ranks + ${market.consensusSource}` : "Guru ranks + local Yahoo-primary ADP";
-    elements.provisional.hidden = !board.provisional;
-    if (board.provisional) {
-      const consensusNote = market.snapshot
-        ? `Consensus ADP is a validated ${market.consensusSource} snapshot refreshed ${formatSnapshotDate(market.snapshot.fetchedAt)}. It changes market ADP only, not the ranking baseline.`
-        : `Consensus ADP falls back to the local source AVG because no matching validated DraftSharks snapshot is loaded.`;
-      elements.provisional.textContent = `${board.note} ${consensusNote}`;
-    }
+    const consensusNote = market.snapshot
+      ? `Consensus ADP is a validated ${market.consensusSource} snapshot refreshed ${formatSnapshotDate(market.snapshot.fetchedAt)}. It changes market ADP only, not the ranking baseline.`
+      : `Consensus ADP falls back to the local source AVG because no matching validated DraftSharks snapshot is loaded.`;
+    elements.provisional.hidden = false;
+    elements.provisional.textContent = `${board.note || ""} ${state.formatLabel} uses 12 teams, 1 QB, 2 RB, 2 WR, 1 TE, 2 W/R/T flex, K, DEF, and 5 bench spots. Base scoring uses available passing/rushing/receiving/fumble categories; first-down fields and game-level 100/150/200-yard bonus splits are absent from the supplied projection CSV and are excluded. ${consensusNote}`.trim();
     elements.draftProfile.textContent = `${state.teams} teams · Slot ${state.slot}`;
-    elements.formatProfile.textContent = `${board.label} · ${state.flex} flex ${state.flex === 1 ? "slot" : "slots"}`;
+    elements.formatProfile.textContent = `${state.formatLabel} · 2 W/R/T flex`;
     const [firstPick] = snakePicks(state.teams, state.slot, 1);
     elements.nextPick.textContent = formatPick(firstPick, state.teams);
     elements.nextOverall.textContent = `Overall pick ${firstPick}`;
@@ -294,8 +455,9 @@
     }));
   };
 
-  const getQueue = (players, picks, state, market) => {
+  const getQueue = (players, picks, state, market, scarcity) => {
     const selectedIds = new Set();
+    const roster = { QB: 0, RB: 0, WR: 0, TE: 0 };
     return picks.map((pick, index) => {
       const round = index + 1;
       const nextPick = picks[index + 1] ?? snakePicks(state.teams, state.slot, 16)[15];
@@ -307,17 +469,27 @@
           const earlyBy = adp - pick;
           const availability = availabilityEstimate(player, pick, market).probability;
           const survival = nextPickSurvival(player, pick, nextPick, market);
-          const action = captureAction(player, pick, nextPick, market);
+          const marketAction = captureAction(player, pick, nextPick, market);
+          const gameTheory = scarcityAction(player, pick, nextPick, market, scarcity, roster, marketAction);
+          const vorp = scarcity.vorp.get(player.id);
+          const projection = scarcity.projectionById.get(player.id);
           const score = (150 - player.rank) + preferredPositionScore(player, round, state.flex)
             + Math.min(50, Math.max(0, valueGap(player, market))) * .2
+            + (isAdp(vorp) ? Math.min(50, Math.max(0, vorp)) * .1 : 0)
             - Math.abs(earlyBy) * .45 - (status.className === "avoid" ? 500 : 0);
-          return { player, status, score, consensus: consensusAdp(player, market), availability, survival, action };
+          return {
+            player, status, score, consensus: consensusAdp(player, market), availability, survival,
+            marketAction, gameTheory, vorp, projection
+          };
         })
         .filter(({ player, status }) => status.className !== "avoid" && isPlausiblyAvailable(player, pick, market))
         .sort((a, b) => b.score - a.score)
         .slice(0, 4);
       if (candidates[0]) {
         selectedIds.add(candidates[0].player.id);
+        if (roster[candidates[0].player.position] !== undefined) {
+          roster[candidates[0].player.position] += 1;
+        }
       }
       return { pick, nextPick, round, candidates };
     });
@@ -335,12 +507,13 @@
       card.innerHTML = `
         <header><strong>Round ${round}</strong><span>${formatPick(pick, state.teams)} · Overall ${pick}</span></header>
         ${candidates.length ? `<ol class="queue-options">
-          ${candidates.map(({ player, status, consensus, availability, survival, action }) => `
+          ${candidates.map(({ player, status, consensus, availability, survival, gameTheory, vorp, projection }) => `
             <li>
               <span>
                 <span class="queue-player">${player.name} <span aria-label="${player.position}">${player.position}</span></span>
                 <span class="queue-meta">Rank ${player.rank} · Yahoo ${formatAdp(player.adp.yahoo)} · Consensus ${formatAdp(consensus)} · ${status.detail}</span>
-                <span class="queue-meta"><strong>Available ${formatProbability(availability)}</strong> · Next-pick survival ${formatProbability(survival)} · <strong>${action}</strong></span>
+                <span class="queue-meta"><strong>Available ${formatProbability(availability)}</strong> · Next-pick survival ${formatProbability(survival)} · <strong>${gameTheory.action}</strong></span>
+                <span class="queue-meta">${formatPoints(projection)} · VORP ${isAdp(vorp) ? vorp.toFixed(1) : "unavailable"} · ${gameTheory.drop.label}${isAdp(gameTheory.drop.projectionDrop) ? ` (${gameTheory.drop.projectionDrop.toFixed(1)} pts)` : ""} · ${gameTheory.need}</span>
               </span>
               <span class="tag ${status.className}">${status.label}</span>
             </li>`).join("")}
@@ -349,7 +522,7 @@
     }));
   };
 
-  const renderRankings = (players, state, market) => {
+  const renderRankings = (players, state, market, scarcity) => {
     const query = elements.search.value.trim().toLowerCase();
     const nextPick = snakePicks(state.teams, state.slot, 1)[0];
     const followingPick = snakePicks(state.teams, state.slot, 2)[1];
@@ -360,16 +533,20 @@
       const consensus = consensusAdp(player, market);
       const availability = availabilityEstimate(player, nextPick, market).probability;
       const action = captureAction(player, nextPick, followingPick, market);
-      const projection = isAdp(player.projectedPoints) ? `${player.projectedPoints.toFixed(1)} pts/g` : "source-ranked";
+      const projection = scarcity.projectionById.get(player.id);
+      const vorp = scarcity.vorp.get(player.id);
+      const positionalTier = scarcity.positionalTier.get(player.id);
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${player.rank}</td>
-        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${projection}</small></td>
+        <td class="player-cell"><strong>${player.name}</strong><small>${player.team} · ${isAdp(projection) ? "projection matched" : "projection unavailable"}</small></td>
         <td>${player.position}</td>
         <td>${formatAdp(player.adp.yahoo)}</td>
         <td>${formatAdp(consensus)}</td>
         <td>${window ? formatAdp(window.adp) : "N/A"}</td>
         <td>${formatProbability(availability)}<small>${action}</small></td>
+        <td>${formatPoints(projection)}<small>VORP ${isAdp(vorp) ? vorp.toFixed(1) : "unavailable"}</small></td>
+        <td>Tier ${positionalTier || "N/A"}<small>Guru rank-derived</small></td>
         <td><span class="tag ${status.className}" title="${status.detail}">${window ? `${window.start}–${window.end}` : "N/A"}</span></td>`;
       return row;
     }));
@@ -388,18 +565,20 @@
     const players = getPlayers(state.scoring);
     const picks = snakePicks(state.teams, state.slot, 15);
     const market = getMarketContext(state);
+    const scarcity = createScarcityModel(players, state, market);
     renderMeta(state, market);
+    renderLeagueModel(state, scarcity);
     renderPickMap(state, picks);
-    renderQueue(getQueue(players, picks, state, market), state);
-    renderRankings(players, state, market);
+    renderQueue(getQueue(players, picks, state, market, scarcity), state);
+    renderRankings(players, state, market, scarcity);
     renderDraftSharks(state, market);
   };
 
-  elements.teams.addEventListener("change", () => {
+  elements.leagueFormat.addEventListener("change", () => {
     renderSlots();
     render();
   });
-  [elements.scoring, elements.slot, elements.flex].forEach((control) => control.addEventListener("change", render));
+  [elements.slot].forEach((control) => control.addEventListener("change", render));
   elements.search.addEventListener("input", render);
 
   renderSlots();

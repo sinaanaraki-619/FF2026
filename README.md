@@ -42,6 +42,12 @@ Validate the Pacific schedule guard and source timestamp parser:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-draftsharks-schedule.ps1
 ```
 
+Validate the league scoring, projection joins, VORP baseline, positional tiers, and two-flex allocation:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-league-projections.ps1
+```
+
 ## Publish with GitHub Pages
 
 1. Push the default branch (`main`) containing this repository.
@@ -120,3 +126,27 @@ The displayed **Available at this pick** value is the upper-tail probability tha
 **Next-pick survival** is the conditional probability of still being available at the manager's following snake pick, given availability now. **Take Now** captures a player with low survival or a material Guru-rank-versus-market gap; **Safe to Wait** indicates adequate conditional survival; **Value if Falls** identifies a lower-probability option that should not drive a reach. The rank-versus-market gap can make a controlled 9–12-pick reach actionable for a large-value capture, but the dashboard still never recommends more than 12 picks early.
 
 The cheat sheet maps exactly 15 snake-draft rounds. Rounds 13–15 prioritize RB/WR depth first, with TE and QB contingency options; the selected position path, active-consensus availability model, and risk labels continue to apply through the final round.
+
+## Custom 12-team league model
+
+The dashboard exposes two exact 12-team formats:
+
+- **Custom half-PPR:** 0.5 points per reception.
+- **Custom full PPR:** 1.0 point per reception.
+
+Both formats use 1 QB, 2 RB, 2 WR, 1 TE, 2 W/R/T flex, K, DEF, and 5 bench spots. The available-category scoring formula is:
+
+`pass yards / 25 + pass TD × 6 - INT × 2 + rush yards / 10 + rush TD × 6 + receptions × format value + receiving yards / 10 + receiving TD × 6 - fumbles × 2`.
+
+Full PPR is therefore exactly `half-PPR + 0.5 × projected receptions`. The supplied offensive projection CSV has no first-down fields, so the app does not fabricate passing/rushing/receiving first-down points. It also contains season totals rather than game-level projections, so 100/150/200 rushing/receiving and 350/400/450 passing bonuses cannot be calculated faithfully and are excluded. The UI calls out both limitations; there is no first-down proxy enabled by default or hidden in the totals.
+
+`assets/projections.js` is generated from the supplied CSV:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-offensive-projections.ps1 `
+  -ProjectionCsvPath .\downloads\NFL_Season_Projections__OFF_.csv
+```
+
+The supplied file contains 108 `QB` rows, of which 19 normalized player IDs match the 198-player draft board. Consequently, projected points and projection VORP are available only for those QBs. RB/WR/TE projection and VORP cells explicitly show **unavailable** rather than inferred values.
+
+Replacement levels begin with 12 QB, 24 RB, 24 WR, and 12 TE required league-wide starters. The remaining two flex starters per team (24 total) are allocated from the next-best Guru-ranked RB/WR/TE pool after those required starters; the resulting position counts establish dynamic replacement indices. Positional tiers use six-player Guru-rank blocks and are labeled rank-derived, not projection tiers. Queue cards combine roster need (core/flex/depth), tier drop before the next snake pick, ADP survival probability, and VORP when it exists to recommend **Take Now**, **Wait**, or **Pivot**.

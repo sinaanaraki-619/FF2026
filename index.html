@@ -7,7 +7,8 @@
     <title>Draft Compass | Fantasy Football Dashboard</title>
     <link rel="stylesheet" href="assets/styles.css">
     <script src="assets/data.js?v=20260730-fifteen-rounds" defer></script>
-    <script src="assets/app.js?v=20260803-draftsharks-status" defer></script>
+    <script src="assets/projections.js?v=20260803-league-model" defer></script>
+    <script src="assets/app.js?v=20260803-league-model" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#dashboard">Skip to dashboard</a>
@@ -39,35 +40,31 @@
           </div>
           <p id="setup-description">Adjust your format to recalculate every pick and target window.</p>
         </div>
-        <form id="draft-form" class="filters" aria-describedby="setup-description">
+        <form id="draft-form" class="filters league-filters" aria-describedby="setup-description">
           <label>
-            <span>Scoring</span>
-            <select id="scoring" name="scoring">
-              <option value="ppr">PPR</option>
-              <option value="halfPpr">Half-PPR</option>
-            </select>
-          </label>
-          <label>
-            <span>League size</span>
-            <select id="teams" name="teams">
-              <option value="10">10 teams</option>
-              <option value="12" selected>12 teams</option>
-              <option value="14">14 teams</option>
+            <span>League format</span>
+            <select id="league-format" name="league-format">
+              <option value="customHalfPpr" selected>Custom half-PPR (0.5 reception)</option>
+              <option value="customPpr">Custom full PPR (1.0 reception)</option>
             </select>
           </label>
           <label>
             <span>Draft position</span>
             <select id="slot" name="slot"></select>
           </label>
-          <label>
-            <span>Flex slots</span>
-            <select id="flex" name="flex">
-              <option value="1" selected>1 flex</option>
-              <option value="2">2 flexes</option>
-            </select>
-          </label>
         </form>
         <p id="provisional-message" class="notice warning" hidden></p>
+      </section>
+
+      <section class="panel league-model-panel" aria-labelledby="league-model-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">League-specific game theory</p>
+            <h2 id="league-model-title">Roster scarcity model</h2>
+          </div>
+          <p>Replacement levels reflect 12 teams, required starters, and two flex starters. Projection VORP appears only where the supplied offensive CSV maps to the board.</p>
+        </div>
+        <div id="league-model" class="league-model" aria-live="polite">Loading league model...</div>
       </section>
 
       <section class="panel draftsharks-panel" aria-labelledby="draftsharks-title">
@@ -131,7 +128,7 @@
             <p class="eyebrow">Round-by-round queue</p>
             <h2 id="queue-title">Targets with 3–4 alternatives</h2>
           </div>
-          <p>Recommendations pair Yahoo-primary market ADP with Guru ranks, estimated availability, and next-pick survival.</p>
+          <p>Recommendations pair Yahoo-primary market ADP with Guru ranks, estimated availability, and league-specific scarcity.</p>
         </div>
         <div class="legend" aria-label="Recommendation labels">
           <span class="tag major-steal">Major steal</span>
@@ -166,6 +163,8 @@
                   <th scope="col">Consensus ADP</th>
                   <th scope="col">Target ADP</th>
                   <th scope="col">Availability</th>
+                  <th scope="col">Projection / VORP</th>
+                  <th scope="col">Positional tier</th>
                   <th scope="col">Target window</th>
                 </tr>
               </thead>
